@@ -1,3 +1,9 @@
 [submodule "vcpkg"]
 	path = vcpkg
 	url = https://github.com/microsoft/vcpkg
+[submodule "shader"]
+	path = shader
+	url = git@github.com:IQuesadilla/shader.git
+[submodule "camera"]
+	path = camera
+	url = git@github.com:IQuesadilla/camera.git
