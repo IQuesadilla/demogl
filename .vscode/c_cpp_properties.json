@@ -4,11 +4,11 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/vcpkg/installed/x64-linux/include/SDL2",
-                "${workspaceFolder}/vcpkg/installed/x64-linux/include/SDL2"
+                "${workspaceFolder}/vcpkg/installed/x64-linux/include/SDL2/",
+                "${workspaceFolder}/vcpkg/installed/x64-linux/include/glm/"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/gcc",
+            "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "linux-gcc-x64",
