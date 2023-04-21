@@ -4,6 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/vcpkg/installed/x64-linux/include/SDL2",
                 "${workspaceFolder}/vcpkg/installed/x64-linux/include/SDL2"
             ],
             "defines": [],
