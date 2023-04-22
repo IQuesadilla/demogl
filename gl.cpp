@@ -224,6 +224,7 @@ private:
 							auto FFlag = SDL_WINDOW_FULLSCREEN_DESKTOP;
 							bool isF = SDL_GetWindowFlags(window) & FFlag;
 							SDL_SetWindowFullscreen(window, isF ? 0 : FFlag);
+						break;
 					}
 				break;
 
