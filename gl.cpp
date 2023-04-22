@@ -22,7 +22,7 @@ public:
 	{
 		flags.doLoop = false;
 		errorval = 0;
-		if( SDL_Init( SDL_INIT_EVERYTHING ) < 0 )
+		if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) < 0 )
 		{
 			errorval = 1;
 			return;
