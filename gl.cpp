@@ -10,6 +10,7 @@
 
 #include "assets/rawcube.h"
 
+#define ENABLE_MCAP true
 #define ENABLE_AA true
 #define WWIDTH 640
 #define WHEIGHT 480
@@ -85,7 +86,7 @@ public:
 			return;
 		}
 
-		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0 )
+		if (SDL_SetRelativeMouseMode(ENABLE_MCAP ? SDL_TRUE : SDL_FALSE) != 0 )
 		{
 			std::cout << "Couldn't capture mouse! SDL Error: " << SDL_GetError() << std::endl;
 			return;
@@ -122,7 +123,7 @@ public:
 		SDL_DestroyWindow(window);
 	}
 
-	bool runOnce()
+	void runOnce()
 	{
 		pollInput();
 
@@ -134,10 +135,12 @@ public:
 
 		camera->InputUpdate(deltaTime);
 
+		// Projection and view are the same per model because they are affected by the camera
 		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,1000.0f);
 		glm::mat4 view = camera->GetViewMatrix();
 		glm::mat4 model = glm::mat4(1.0f);
 
+		// These processes apply to each individual model
 		//model = glm::scale(model, glm::vec3(x,y,x));
 		//model = glm::translate(model, glm::vec3(x,y,z));
 		//model = model * glm::toMat4(glm::quat(w,x,y,z));
@@ -177,6 +180,11 @@ public:
 
 		SDL_GL_SwapWindow(window);
 
+		return;
+	}
+
+	bool isAlive()
+	{
 		return flags.doLoop;
 	}
 
@@ -281,6 +289,6 @@ private:
 int main()
 {
 	gldemo obj;
-	while (obj.runOnce());
+	while (obj.isAlive()) obj.runOnce();
 	return 0;
 }
