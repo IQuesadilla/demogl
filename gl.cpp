@@ -164,8 +164,9 @@ public:
 		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0 )
 		{
 			std::cout << "Couldn't capture mouse! SDL Error: " << SDL_GetError() << std::endl;
-			SDL_SetWindowGrab(window,SDL_TRUE);
+			return;
 		}
+		SDL_SetWindowGrab(window,SDL_TRUE);
 
 		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
 		camera->setViewSize(WWIDTH,WHEIGHT);
