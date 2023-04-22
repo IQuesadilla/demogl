@@ -9,7 +9,7 @@
 #include <memory>
 #include <chrono>
 
-#define ENABLE_AA false
+#define ENABLE_AA true
 #define WWIDTH 640
 #define WHEIGHT 480
 
@@ -103,10 +103,10 @@ public:
 			return;
 		}
 
-		// Use OpenGL v3.3
+		// Use OpenGL v3.3 core
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 		if (ENABLE_AA)
 		{
