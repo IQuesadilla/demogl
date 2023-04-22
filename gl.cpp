@@ -22,15 +22,17 @@ class gldemo
 public:
 	gldemo()
 	{
+		// Don't enable the main loop unless init succeeds
 		flags.doLoop = false;
-		errorval = 0;
+
+		// Initialize Video and Events on SDL, no need to initialize any other subsystems
 		if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) < 0 )
 		{
-			errorval = 1;
+			std::cout << "Failed to init SDL! SDL: " << SDL_GetError() << std::endl;
 			return;
 		}
 
-		// Use OpenGL v3.3 core (aka "330 core")
+		// Use OpenGL v3.3 core - GLSL: #version 330 core
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -73,7 +75,7 @@ public:
 									SDL_WINDOWPOS_UNDEFINED,
 									WWIDTH,
 									WHEIGHT,
-									SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_CAPTURE | SDL_WINDOW_RESIZABLE | (FOnStart ? myFFlag : 0) );
+									SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_MOUSE_CAPTURE | SDL_WINDOW_RESIZABLE );
 		if( window == NULL )
         {
             printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
@@ -122,9 +124,20 @@ public:
 		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(colorData), colorData, GL_STATIC_DRAW);
 
-		// Load and compile the basic demo shaders
-		shader.load("assets/demo.vert","assets/demo.frag");
+		// Load and compile the basic demo shaders, returns true if error
+		if ( shader.load("assets/demo.vert","assets/demo.frag") )
+		{
+			std::cout << "Failed to load shaders!" << std::endl << shader.getErrors() << std::endl;
+			return;
+		}
 
+		#if FOnStart
+			SDL_SetWindowFullscreen(window, myFFlag);
+		#endif
+
+		SDL_ShowWindow(window);
+
+		// If here, initialization succeeded and loop should be enabled
 		flags.doLoop = true;
 	}
 
