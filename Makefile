@@ -18,10 +18,10 @@ demogl.o: demogl.cpp demogl.h
 	$(CXX) $(CFLAGS) $(SDLINC) -o $@ -c $<
 
 shader/shader.o: shader/shader.cpp shader/shader.h
-	$(CXX) $(CFLAGS) $(GLMINC) -o $@ -c $<
+	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ -c $<
 
 camera/camera.o: camera/camera.cpp camera/camera.h
-	$(CXX) $(CFLAGS) $(GLMINC) -o $@ -c $<
+	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ -c $<
 
 clean:
 	- rm bin/*
