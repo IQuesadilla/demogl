@@ -3,14 +3,17 @@
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aColor;
 
-out vec3 fragmentColor;
+out vec3 fragColor;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
 
 void main(){
 
-    gl_Position.xyz = aPos;
-    gl_Position.w = 1.0;
+    gl_Position = projection * view * model * vec4(aPos, 1.0);
 
     // The color of each vertex will be interpolated
     // to produce the color of each fragment
-    fragmentColor = aColor;
+    fragColor = aColor;    
 }

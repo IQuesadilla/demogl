@@ -1,18 +1,18 @@
 CXX = g++
-CFLAGS = -Wall
+CFLAGS = -Wall -std=c++17 -O3
 INCLUDE = $(SDLINC) $(GLMINC)
 
 SDLINC = -I./vcpkg/installed/x64-linux/include/SDL2/
 GLMINC = -I./vcpkg/installed/x64-linux/include/glm/
-SDLLIB = $(wildcard ./vcpkg/installed/x64-linux/lib/*.a) -ldl -lpthread
+LIBS = $(wildcard ./vcpkg/installed/x64-linux/lib/*.a) -ldl -lpthread
 
 all: bin/demo bin/gl
 
 bin/demo: main.cpp demogl.o
-	$(CXX) $(CFLAGS) $(SDLINC) -o $@ $^ $(SDLLIB)
+	$(CXX) $(CFLAGS) $(SDLINC) -o $@ $^ $(LIBS)
 
 bin/gl: gl.cpp shader/shader.o camera/camera.o
-	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(SDLLIB) -lGL
+	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -lGL
 
 demogl.o: demogl.cpp demogl.h
 	$(CXX) $(CFLAGS) $(SDLINC) -o $@ -c $<
