@@ -6,21 +6,15 @@ SDLINC = -I./vcpkg/installed/x64-linux/include/SDL2/
 GLMINC = -I./vcpkg/installed/x64-linux/include/glm/
 LIBS = $(wildcard ./vcpkg/installed/x64-linux/lib/*.a) -ldl -lpthread
 
-all: bin/demo bin/gl
+all: bin/gl
 
-bin/demo: main.cpp demogl.o
-	$(CXX) $(CFLAGS) $(SDLINC) -o $@ $^ $(LIBS)
-
-bin/gl: gl.cpp shader/shader.o camera/camera.o
+bin/gl: gl.cpp shader.o camera.o
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -lGL
 
-demogl.o: demogl.cpp demogl.h
-	$(CXX) $(CFLAGS) $(SDLINC) -o $@ -c $<
-
-shader/shader.o: shader/shader.cpp shader/shader.h
+shader.o: shader/shader.cpp shader/shader.h
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ -c $<
 
-camera/camera.o: camera/camera.cpp camera/camera.h
+camera.o: camera/camera.cpp camera/camera.h
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ -c $<
 
 clean:
