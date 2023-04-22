@@ -10,7 +10,7 @@
 
 #include "assets/rawcube.h"
 
-#define FOnStart true
+#define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
 #define ENABLE_MCAP true
 #define ENABLE_AA false
@@ -70,18 +70,21 @@ public:
 			return;
 		}
 
-		window = SDL_CreateWindow(	"gldemo",
-									SDL_WINDOWPOS_UNDEFINED,
-									SDL_WINDOWPOS_UNDEFINED,
-									WWIDTH,
-									WHEIGHT,
-									SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_MOUSE_CAPTURE | SDL_WINDOW_RESIZABLE );
+		window = SDL_CreateWindow(	"gldemo", 					// Window Title
+									SDL_WINDOWPOS_UNDEFINED,	// Starting Global X Position
+									SDL_WINDOWPOS_UNDEFINED,	// Starting Global Y Position
+									WWIDTH,						// Window Width
+									WHEIGHT,					// Window Height
+									SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_MOUSE_CAPTURE | SDL_WINDOW_RESIZABLE );\
+
+		// window will be NULL if CreateWindow failed
 		if( window == NULL )
         {
             printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
             return;
         }
 
+		// start OpenGL within the SDL window, returns NULL if failed
 		glcontext = SDL_GL_CreateContext( window );
 		if( glcontext == NULL )
 		{
@@ -89,6 +92,8 @@ public:
 			return;
 		}
 
+		// Relative Mouse Mode will capture the mouse keep it centered within the window (like a videogame)
+		// Otherwise, just make it invisible
 		#if ENABLE_MCAP
 			if ( SDL_SetRelativeMouseMode(SDL_TRUE) != 0 )
 			{
@@ -99,6 +104,20 @@ public:
 			SDL_SetWindowGrab(window,SDL_TRUE);
 		#endif
 
+		// Load window icon and set if successfully loaded
+		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
+		if (icon == NULL)
+		{
+			std::cout << "Failed to load icon image" << std::endl;
+		}
+		else
+		{
+			SDL_SetWindowIcon(window, icon);
+			SDL_FreeSurface(icon);
+		}
+
+		// Create a new camera and set it's default position to (x,y,z)
+		// +z is towards you, -z is away from you
 		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
 		camera->setViewSize(WWIDTH,WHEIGHT);
 		camera->MovementSpeed = 0.01f;
@@ -131,7 +150,7 @@ public:
 			return;
 		}
 
-		#if FOnStart
+		#if FullOnStart
 			SDL_SetWindowFullscreen(window, myFFlag);
 		#endif
 
