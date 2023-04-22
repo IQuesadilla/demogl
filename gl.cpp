@@ -9,6 +9,7 @@
 #include <memory>
 #include <chrono>
 
+#define ENABLE_AA false
 #define WWIDTH 640
 #define WHEIGHT 480
 
@@ -105,12 +106,15 @@ public:
 		// Use OpenGL v3.3
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-		// Enable 8x Antialiasing
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8);
-		glEnable(GL_MULTISAMPLE);
+		if (ENABLE_AA)
+		{
+			// Enable 8x Antialiasing
+			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8);
+			glEnable(GL_MULTISAMPLE);
+		}
 
 		GLenum error = GL_NO_ERROR;
 
@@ -157,9 +161,10 @@ public:
 			return;
 		}
 
-		if ( SDL_SetRelativeMouseMode(SDL_TRUE) != 0 )
+		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0 )
 		{
 			std::cout << "Couldn't capture mouse! SDL Error: " << SDL_GetError() << std::endl;
+			SDL_SetWindowGrab(window,SDL_TRUE);
 		}
 
 		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
