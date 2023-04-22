@@ -11,7 +11,7 @@ uniform mat4 projection;
 
 void main(){
 
-    gl_Position = projection * view * model * vec4(aPos, 1.0);f
+    gl_Position = projection * view * model * vec4(aPos, 1.0);
 
     // The color of each vertex will be interpolated
     // to produce the color of each fragment
