@@ -220,6 +220,10 @@ private:
 						case SDLK_ESCAPE:
 							flags.doLoop = false;
 						break;
+						case SDLK_f:
+							auto FFlag = SDL_WINDOW_FULLSCREEN_DESKTOP;
+							bool isF = SDL_GetWindowFlags(window) & FFlag;
+							SDL_SetWindowFullscreen(window, isF ? 0 : FFlag);
 					}
 				break;
 
