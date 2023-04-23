@@ -2,13 +2,17 @@ CXX = g++
 CFLAGS = -Wall -std=c++17 -O3
 INCLUDE = $(SDLINC) $(GLMINC)
 
+IMGUIINC = -I./vcpkg/installed/x64-linux/include/
 SDLINC = -I./vcpkg/installed/x64-linux/include/SDL2/
 GLMINC = -I./vcpkg/installed/x64-linux/include/glm/
 LIBS = $(wildcard ./vcpkg/installed/x64-linux/lib/*.a) -ldl -lpthread
 
-all: bin/gl
+all: bin/sdlgl bin/sdlglimgui
 
-bin/gl: gl.cpp shader.o camera.o
+bin/sdlglimgui: sdlglimgui.cpp shader.o camera.o
+	$(CXX) $(CFLAGS) $(INCLUDE) $(IMGUIINC) -o $@ $^ $(LIBS) -lGL
+
+bin/sdlgl: sdlgl.cpp shader.o camera.o
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -lGL
 
 shader.o: shader/shader.cpp shader/shader.h

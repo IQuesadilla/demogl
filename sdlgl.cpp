@@ -8,12 +8,15 @@
 #include <memory>
 #include <chrono>
 
+#include <glm.hpp>
+#include <gtx/quaternion.hpp>
+
 #include "assets/rawcube.h"
 
 #define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
 #define ENABLE_MCAP true
-#define ENABLE_AA false
+#define AA_LEVEL 4
 #define WWIDTH 640
 #define WHEIGHT 480
 
@@ -37,10 +40,10 @@ public:
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-		#if ENABLE_AA
+		#if AA_LEVEL
 			// Enable 8x Antialiasing
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8);
+			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, AA_LEVEL);
 			glEnable(GL_MULTISAMPLE);
 		#endif
 
@@ -75,7 +78,7 @@ public:
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global Y Position
 									WWIDTH,						// Window Width
 									WHEIGHT,					// Window Height
-									SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_MOUSE_CAPTURE | SDL_WINDOW_RESIZABLE );\
+									SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_MOUSE_CAPTURE | SDL_WINDOW_RESIZABLE );
 
 		// window will be NULL if CreateWindow failed
 		if( window == NULL )
@@ -91,6 +94,8 @@ public:
 			printf( "OpenGL context could not be created! SDL Error: %s\n", SDL_GetError() );
 			return;
 		}
+
+		SDL_GL_MakeCurrent(window, glcontext);
 
 		// Relative Mouse Mode will capture the mouse keep it centered within the window (like a videogame)
 		// Otherwise, just make it invisible
@@ -156,6 +161,8 @@ public:
 
 		SDL_ShowWindow(window);
 
+		rot = 0.0f;
+
 		// If here, initialization succeeded and loop should be enabled
 		flags.doLoop = true;
 	}
@@ -184,7 +191,7 @@ public:
 		camera->InputUpdate(deltaTime);
 
 		// Projection and view are the same per model because they are affected by the camera
-		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,1000.0f);
+		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,100.0f);
 		glm::mat4 view = camera->GetViewMatrix();
 		glm::mat4 model = glm::mat4(1.0f);
 
@@ -192,6 +199,11 @@ public:
 		//model = glm::scale(model, glm::vec3(x,y,x));
 		//model = glm::translate(model, glm::vec3(x,y,z));
 		//model = model * glm::toMat4(glm::quat(w,x,y,z));
+
+		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
+			glm::angleAxis(							// Angle axis has two arguments - angle and axis
+				glm::radians(rot += deltaTime/60),	// The angle to rotate all the vertices
+				glm::vec3(0.0f, 1.0f, 0.0f)));		// Which axis to apply the rotation to and how much - (x,y,z)
 
 		// Use shader "shader" and give it all 3 uniforms
 		shader.use();
@@ -353,6 +365,7 @@ private:
 
 	std::shared_ptr<Camera> camera;
 	_shader shader;
+	float rot;
 };
 
 int main()
