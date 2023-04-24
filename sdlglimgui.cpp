@@ -6,6 +6,9 @@
 #include "camera/camera.h"
 #include <iostream>
 #include <memory>
+#include <vector>
+#include <map>
+#include <list>
 #include <chrono>
 
 #include <glm.hpp>
@@ -22,6 +25,216 @@
 #define AA_LEVEL 2
 #define WWIDTH 640
 #define WHEIGHT 480
+
+bool RaycastRotatedCube(const glm::vec3& cubeExtents, const glm::mat4& cubeTransform, const glm::vec3& rayOrigin, const glm::vec3& rayDir)
+{
+    // Compute the inverse transformation matrix for the cube
+    glm::mat4 inverseTransform = glm::inverse(cubeTransform);
+
+    // Transform the ray into the coordinate space of the cube
+    glm::vec3 localRayOrigin = glm::vec3(inverseTransform * glm::vec4(rayOrigin, 1.0));
+    glm::vec3 localRayDir = glm::normalize(glm::vec3(inverseTransform * glm::vec4(rayDir, 0.0)));
+
+    // Compute the inverse of the cube's extents
+    glm::vec3 inverseExtents = glm::vec3(1.0) / cubeExtents;
+
+    // Compute the minimum and maximum intersection times for the x-axis
+    float txMin = (inverseExtents.x * (-cubeExtents.x - localRayOrigin.x)) / localRayDir.x;
+    float txMax = (inverseExtents.x * ( cubeExtents.x - localRayOrigin.x)) / localRayDir.x;
+
+    // Compute the minimum and maximum intersection times for the y-axis
+    float tyMin = (inverseExtents.y * (-cubeExtents.y - localRayOrigin.y)) / localRayDir.y;
+    float tyMax = (inverseExtents.y * ( cubeExtents.y - localRayOrigin.y)) / localRayDir.y;
+
+    // Compute the minimum and maximum intersection times for the z-axis
+    float tzMin = (inverseExtents.z * (-cubeExtents.z - localRayOrigin.z)) / localRayDir.z;
+    float tzMax = (inverseExtents.z * ( cubeExtents.z - localRayOrigin.z)) / localRayDir.z;
+
+    // Compute the maximum and minimum intersection times for the whole cube
+    float tMin = glm::max(glm::max(glm::min(txMin, txMax), glm::min(tyMin, tyMax)), glm::min(tzMin, tzMax));
+    float tMax = glm::min(glm::min(glm::max(txMin, txMax), glm::max(tyMin, tyMax)), glm::max(tzMin, tzMax));
+
+	//std::cout << "tMin: " << tMin << ", tMax: " << tMax << std::endl;
+
+    // Check if the ray intersects the cube
+    if (tMin > tMax || tMax < 0.0f)
+    {
+        // The ray missed the cube
+        return false;
+    }
+
+    // The ray intersects the cube
+    return true;
+}
+
+class myCube
+{
+public:
+	myCube()
+	{
+		glGenVertexArrays(1,&VAO);
+		glBindVertexArray(VAO);
+
+		// Generate a Vertex Buffer Object to represent the cube's vertices
+		glGenBuffers(1,&vertbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertData), vertData, GL_STATIC_DRAW);
+
+		// Generate a Vertex Buffer Object to represent the cube's colors
+		glGenBuffers(1, &colorbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(colorData), colorData, GL_STATIC_DRAW);
+
+		rotAxis = glm::vec3(0.f);
+		spinAxis = glm::vec3(0.f);
+		alpha = 1.0f;
+		trans = glm::vec3(0.f);
+
+		flags.isHovered = false;
+		flags.isSelected = false;
+		flags.isClosest = false;
+
+		shader = new _shader();
+		// Load and compile the basic demo shaders, returns true if error
+		if ( shader->load("assets/demo.vert","assets/demo.frag") )
+		{
+			std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
+			return;
+		}
+	}
+
+	myCube(myCube *temp)
+	{
+		memcpy(this,temp,sizeof(myCube));
+	}
+
+	~myCube()
+	{
+		delete shader;
+		glDeleteBuffers(1,&colorbuff);
+		glDeleteBuffers(1,&vertbuff);
+		glDeleteVertexArrays(1,&VAO);
+	}
+
+	void render(glm::mat4 projection, glm::mat4 view, float deltaTime, std::shared_ptr<Camera> cam)
+	{
+		//if ( !(speed > -0.01f && speed < 0.01f) )
+		rotAxis += deltaTime*spinAxis;
+
+		if (rotAxis.x > 360.f)
+			rotAxis.x -= 360.f;
+		if (rotAxis.y > 360.f)
+			rotAxis.y -= 360.f;
+		if (rotAxis.z > 360.f)
+			rotAxis.z -= 360.f;
+
+		if (rotAxis.x < 0.f)
+			rotAxis.x += 360.f;
+		if (rotAxis.y < 0.f)
+			rotAxis.y += 360.f;
+		if (rotAxis.z < 0.f)
+			rotAxis.z += 360.f;
+
+		glm::mat4 model = glm::mat4(1.0f);
+
+		model = glm::translate(model, trans);
+
+		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
+			glm::angleAxis(							// Angle axis has two arguments - angle and axis
+				glm::radians(rotAxis.x),					// The angle to rotate all the vertices, converts deg to rad
+				glm::vec3(1.f,0.f,0.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
+		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
+			glm::angleAxis(							// Angle axis has two arguments - angle and axis
+				glm::radians(rotAxis.y),					// The angle to rotate all the vertices, converts deg to rad
+				glm::vec3(0.f,1.f,0.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
+		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
+			glm::angleAxis(							// Angle axis has two arguments - angle and axis
+				glm::radians(rotAxis.z),					// The angle to rotate all the vertices, converts deg to rad
+				glm::vec3(0.f,0.f,1.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
+
+		//glm::vec3 lookingDirection = glm::vec3(cam->Front)
+		flags.isHovered = RaycastRotatedCube(glm::vec3(1.0f, 1.0f, 1.0f), model, cam->Position, cam->Front);
+
+		glBindVertexArray(VAO);
+
+		if ( !flags.isSelected )	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+		else						glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+
+		//if ( flags.isHovered )
+		//	alpha = 0.3f;
+		//else
+		//	alpha = 1.0f;
+
+		// Use shader "shader" and give it all 3 uniforms
+		shader->use();
+		shader->setMat4("model",model);				// GLSL: uniform mat4 model;
+		shader->setMat4("view",view);				// GLSL: uniform mat4 view;
+		shader->setMat4("projection",projection);	// GLSL: uniform mat4 projection;
+
+		if (flags.isClosest)
+			shader->setFloat("alpha",alpha/2);
+		else shader->setFloat("alpha",alpha);
+
+		flags.isClosest = false;
+
+		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
+		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
+		glVertexAttribPointer(
+			0,                  // location
+			3,                  // size (per vertex)
+			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+			GL_FALSE,           // is normalized*
+			0,                  // stride**
+			(void*)0            // array buffer offset
+		);
+
+		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
+		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
+		glVertexAttribPointer(
+			1,                  // location
+			3,                  // size (per vertex)
+			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+			GL_FALSE,           // is normalized*
+			0,                  // stride**
+			(void*)0            // array buffer offset
+		);
+
+		// * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
+		// * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
+		// * to floating point. Otherwise, values will be converted to floats directly without normalization. 
+
+		// ** 0 means tightly packed, in this case 0 means OpenGL should automatically calculate size * sizeof(GLFloat) = 12
+		// ** no distance from "how many bytes it is from the start of one element to the start of another"
+
+		// Enable location 0 and location 1 in the shader
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+
+		// Draw the cube
+		glDrawArrays(GL_TRIANGLES, 0, 12*3);
+
+		// Disable location 0 and location 1
+		glDisableVertexArrayAttrib(VAO, 0);
+		glDisableVertexArrayAttrib(VAO, 1);
+	}
+
+	float distance(glm::vec3 pos)
+	{
+		return glm::abs(glm::distance(pos,trans));
+	}
+
+	struct {
+		bool isHovered;
+		bool isSelected;
+		bool isClosest;
+	} flags;
+
+	GLuint VAO, vertbuff, colorbuff;
+	float alpha;
+	glm::vec3 trans, rotAxis, spinAxis, spin;
+	_shader *shader;
+	glm::vec3 hitPoint;
+};
 
 class gldemo
 {
@@ -117,37 +330,36 @@ public:
 		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
 		camera->setViewSize(WWIDTH,WHEIGHT);
 		camera->MovementSpeed = 0.01f;
+		camera->BinarySensitivity = 2.0f;
+
+		origin.reset( new _shader() );
+		if ( origin->load("assets/origin.vert","assets/origin.frag") )
+		{
+			std::cout << "Failed to load shaders!" << std::endl << origin->getErrors() << std::endl;
+			return;
+		}
+
+		glGenVertexArrays(1,&originVAO);
+		glBindVertexArray(originVAO);
+
+		// Generate a Vertex Buffer Object to represent the cube's vertices
+		glGenBuffers(1,&originvertbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, originvertbuff);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(originVerts), originVerts, GL_STATIC_DRAW);
+
+		glGenBuffers(1,&origincolorbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, origincolorbuff);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(originColors), originColors, GL_STATIC_DRAW);
+
+		glLineWidth(2.0f);
 
 		// Enable depth test - makes things in front appear in front
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 
-		// Don't render faces that have a normal facing away from the viewport
-		glEnable(GL_CULL_FACE);
+		clear_color = ImVec4(0.2f, 0.3f, 0.3f, 1.0f);
 
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		// Create a Vertex Array Object to represent the cube
-		glGenVertexArrays(1,&VAO);
-		glBindVertexArray(VAO);
-
-		// Generate a Vertex Buffer Object to represent the cube's vertices
-		glGenBuffers(1,&vertbuff);
-		glBindBuffer(GL_ARRAY_BUFFER,vertbuff);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertData), vertData, GL_STATIC_DRAW);
-
-		// Generate a Vertex Buffer Object to represent the cube's colors
-		glGenBuffers(1, &colorbuff);
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(colorData), colorData, GL_STATIC_DRAW);
-
-		// Load and compile the basic demo shaders, returns true if error
-		if ( shader.load("assets/demo.vert","assets/demo.frag") )
-		{
-			std::cout << "Failed to load shaders!" << std::endl << shader.getErrors() << std::endl;
-			return;
-		}
+		//cubes.push_back(std::make_shared<myCube>(new myCube()));
 
 		IMGUI_CHECKVERSION();
     	ImGui::CreateContext();
@@ -161,12 +373,7 @@ public:
 		font_cfg.OversampleV = 3;
 		//font_cfg.RasterizerFlags |= ImGuiFreeType::ForceAutoHint;
 		ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/font.ttf",15,&font_cfg);
-		//ImGui::GetIO().Fonts->Build();
-
-		clear_color = ImVec4(0.2f, 0.3f, 0.3f, 1.0f);
-		cubeSpeed = 0.033f;
-		rot = 0.0f;
-		alpha = 1.0f;
+		flags.showDemoMenu = false;
 
 		start = std::chrono::steady_clock::now();
 
@@ -176,6 +383,8 @@ public:
 
 		SDL_GL_SetSwapInterval(0);
 		SDL_ShowWindow(window);
+
+		flags.selectClosest = false;
 
 		// If here, initialization succeeded and loop should be enabled
 		flags.doLoop = true;
@@ -190,12 +399,10 @@ public:
 
 	void runOnce()
 	{
+		bool addCube = false;
+		bool clearCubes = false;
 		// Check for any inputs from the user
 		pollInput();
-
-		// Set clear color, clear screen and depth
-		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Get amount of time since last frame in milliseconds, used to determine how much movement is necessary
 		float deltaTime = float((std::chrono::steady_clock::now() - start).count()) / 1000000.0f;
@@ -207,28 +414,75 @@ public:
 		// Projection and view are the same per model because they are affected by the camera
 		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,100.0f);
 		glm::mat4 view = camera->GetViewMatrix();
-		glm::mat4 model = glm::mat4(1.0f);
 
-		// These processes apply to each individual model
-		//model = glm::scale(model, glm::vec3(x,y,x));
-		//model = glm::translate(model, glm::vec3(x,y,z));
-		//model = model * glm::toMat4(glm::quat(w,x,y,z));
+		glDepthMask( GL_TRUE );
 
-		rot += deltaTime*cubeSpeed;
-		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
-			glm::angleAxis(							// Angle axis has two arguments - angle and axis
-				glm::radians(rot),					// The angle to rotate all the vertices, converts deg to rad
-				glm::vec3(0.0f, 1.0f, 0.0f)));		// Which axis to apply the rotation to and how much - (x,y,z)
+		// Set clear color, clear screen and depth
+		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// Use shader "shader" and give it all 3 uniforms
-		shader.use();
-		shader.setMat4("model",model);				// GLSL: uniform mat4 model;
-		shader.setMat4("view",view);				// GLSL: uniform mat4 view;
-		shader.setMat4("projection",projection);	// GLSL: uniform mat4 projection;
-		shader.setFloat("alpha",alpha);
+		std::list<std::pair<std::shared_ptr<myCube>, float> > sorted;
+		std::pair<std::shared_ptr<myCube>, float> closestHovered
+			= std::make_pair(nullptr, 1000.0f);
 
-		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
-		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
+		for (auto &cube : cubes)
+		{
+			if (cube->flags.isHovered)
+			{
+				float dis = cube->distance(camera->Position);
+				if ( dis < closestHovered.second )
+				{
+					closestHovered = std::make_pair(cube,dis);
+				}
+			}
+		}
+
+		if (closestHovered.second < 1000.0f)
+		{
+			closestHovered.first->flags.isClosest = true;
+
+			if ( flags.selectClosest )
+			{
+				closestHovered.first->flags.isSelected = ! closestHovered.first->flags.isSelected;
+				flags.selectClosest = false;
+			}
+		}
+
+		for (auto &cube : cubes)
+		{
+			if (cube->flags.isSelected) glEnable(GL_CULL_FACE);
+			else						glDisable(GL_CULL_FACE);
+
+			if (cube->alpha == 1.0f && !cube->flags.isClosest)
+				cube->render(projection,view,deltaTime, camera);
+			else
+			{
+				bool isInserted = false;
+				float dis = cube->distance(camera->Position);
+				for (auto it = sorted.begin(); it != sorted.end(); it++)
+				{
+					if ( dis > it->second )
+					{
+						sorted.insert(it,std::make_pair(cube,dis));
+						isInserted = true;
+						break;
+					}
+				}
+
+				if ( !isInserted )
+				{
+					sorted.emplace_back(std::make_pair(cube,dis));
+				}
+			}
+		}
+
+		glBindVertexArray(originVAO);
+
+		origin->use();
+		origin->setMat4("projection",projection);
+		origin->setMat4("view",view);
+
+		glBindBuffer(GL_ARRAY_BUFFER, originvertbuff);
 		glVertexAttribPointer(
 			0,                  // location
 			3,                  // size (per vertex)
@@ -238,8 +492,7 @@ public:
 			(void*)0            // array buffer offset
 		);
 
-		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, origincolorbuff);
 		glVertexAttribPointer(
 			1,                  // location
 			3,                  // size (per vertex)
@@ -249,23 +502,27 @@ public:
 			(void*)0            // array buffer offset
 		);
 
-		// * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
-		// * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
-		// * to floating point. Otherwise, values will be converted to floats directly without normalization. 
-
-		// ** 0 means tightly packed, in this case 0 means OpenGL should automatically calculate size * sizeof(GLFloat) = 12
-		// ** no distance from "how many bytes it is from the start of one element to the start of another"
-
-		// Enable location 0 and location 1 in the shader
 		glEnableVertexAttribArray(0);
 		glEnableVertexAttribArray(1);
 
 		// Draw the cube
-		glDrawArrays(GL_TRIANGLES, 0, 12*3);
+		glDrawArrays(GL_LINES, 0, 6);
 
 		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(VAO, 0);
-		glDisableVertexArrayAttrib(VAO, 1);
+		glDisableVertexArrayAttrib(originVAO, 0);
+		glDisableVertexArrayAttrib(originVAO, 1);
+
+
+
+		//glDepthMask( GL_FALSE );
+		glDisable(GL_CULL_FACE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		for (auto &cube : sorted)
+		{
+			cube.first->render(projection,view,deltaTime,camera);
+		}
+		glDisable(GL_BLEND);
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
@@ -273,35 +530,79 @@ public:
 
 		if ( SDL_GetRelativeMouseMode() == SDL_FALSE )
 		{
-			ImGui::ShowDemoWindow();
-			
+			if ( flags.showDemoMenu )
+				ImGui::ShowDemoWindow(&flags.showDemoMenu);
+
 			ImGui::Begin("Menu",(bool*)__null,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);// Create a window called "Hello, world!" and append into it.
 
 			ImGui::Text("Press ESCAPE to toggle menu");               // Display some text (you can use a format strings too)
-			ImGui::SliderFloat("Cube Speed", &cubeSpeed, 0.001f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-			ImGui::SliderFloat("Alpha", &alpha, 0.0f, 1.0f);
-			ImGui::ColorEdit3("Background Color", (float*)&clear_color); // Edit 3 floats representing a color
 
-			if (ImGui::Button("Toggle Fullscreen"))
+			if (ImGui::Button("Fullscreen"))
 			{
 				// Check if my fullscreen flag is set, set it to opposite
 				bool isF = SDL_GetWindowFlags(window) & myFFlag;
 				SDL_SetWindowFullscreen(window, isF ? 0 : myFFlag);
 			}
 			ImGui::SameLine();
+			if (ImGui::Button("DemoMenu")) flags.showDemoMenu = !flags.showDemoMenu;
+			ImGui::SameLine();
 			if (ImGui::Button("Quit")) flags.doLoop = false;
+			if ( ImGui::Button("New Cube") ) addCube = true;
+			ImGui::SameLine();
+			if ( ImGui::Button("Clear Cubes") ) clearCubes = true;
+			ImGui::ColorEdit3("Background Color", (float*)&clear_color); // Edit 3 floats representing a color
+
+			ImGui::Text("Cubes: %ld, Sorted: %ld", cubes.size(), sorted.size());
+
+			int i = 0;
+			for (auto &cube : cubes)
+			{
+				std::string name = std::to_string(i++);
+				if ( cube->flags.isSelected && ImGui::TreeNode(name.c_str()) )
+				{
+					ImGui::SliderFloat("Alpha", &cube->alpha, 0.0f, 1.0f);
+
+					ImGui::DragFloat("Spin X", &cube->spinAxis.x, 0.01f);
+					ImGui::DragFloat("Spin Y", &cube->spinAxis.y, 0.01f);
+					ImGui::DragFloat("Spin Z", &cube->spinAxis.z, 0.01f);
+
+					ImGui::DragFloat("Rot X", &cube->rotAxis.x);
+					ImGui::DragFloat("Rot Y", &cube->rotAxis.y);
+					ImGui::DragFloat("Rot Z", &cube->rotAxis.z);
+
+					ImGui::DragFloat("X", &cube->trans.x, 0.01f);
+					ImGui::DragFloat("Y", &cube->trans.y, 0.01f);
+					ImGui::DragFloat("Z", &cube->trans.z, 0.01f);
+
+					ImGui::TreePop();
+				}
+			}
 
 			ImGui::End();
 		}
 
-		ImGui::Begin("Framerate",(bool*)__null,	ImGuiWindowFlags_NoDecoration |
+		ImGui::Begin("Overlay",(bool*)__null,	ImGuiWindowFlags_NoDecoration |
 												ImGuiWindowFlags_NoBackground |
-												ImGuiWindowFlags_AlwaysAutoResize |
 												ImGuiWindowFlags_NoInputs |
 												ImGuiWindowFlags_NoNav );
 		ImGui::SetWindowPos({0,0});
-		ImGui::Text("FPS: %f", 1000.0f/deltaTime);
-		ImGui::Text("rot: %d", int(rot) % 360);
+
+		ImGui::SetWindowSize( ImGui::GetIO().DisplaySize );
+
+		ImGui::Text("FPS: %.3f", 1000.0f/deltaTime);
+		ImGui::Text("Camera: %.3f,%.3f,%.3f", camera->Position.x, camera->Position.y, camera->Position.z);
+		ImGui::Text("Camera Direction: %.3f,%.3f,%.3f", camera->Front.x, camera->Front.y, camera->Front.z);
+		ImGui::Text("Yaw: %.3f, Pitch: %.3f", camera->Yaw, camera->Pitch);
+		ImGui::Text("Zoom: %.3f", camera->Zoom);
+
+		std::string crosshair = "   |   \n---+---\n   |   ";
+		auto windowSize = ImGui::GetWindowSize();
+		auto textSize   = ImGui::CalcTextSize(crosshair.c_str());
+
+		ImGui::SetCursorPosX((windowSize.x - textSize.x) * 0.5f);
+		ImGui::SetCursorPosY((windowSize.y - textSize.y) * 0.5f);
+		ImGui::Text(crosshair.c_str());
+
 		ImGui::End();
 
 		ImGui::Render();
@@ -309,6 +610,12 @@ public:
 
 		// Swap the internal framebuffer to the screen
 		SDL_GL_SwapWindow(window);
+
+		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		if ( addCube ) cubes.push_back( std::make_shared<myCube>( new myCube() ) );
+		if ( clearCubes ) cubes.clear();
 
 		return;
 	}
@@ -354,6 +661,18 @@ private:
 					case SDLK_LSHIFT:
 						camera->ProcessKeyboard(DOWN,true);
 					break;
+					case SDLK_UP:
+						camera->ProcessKeyboard(V_UP,true);
+					break;
+					case SDLK_DOWN:
+						camera->ProcessKeyboard(V_DOWN,true);
+					break;
+					case SDLK_RIGHT:
+						camera->ProcessKeyboard(V_RIGHT,true);
+					break;
+					case SDLK_LEFT:
+						camera->ProcessKeyboard(V_LEFT,true);
+					break;
 					}
 				break;
 
@@ -378,6 +697,18 @@ private:
 					case SDLK_LSHIFT:
 						camera->ProcessKeyboard(DOWN,false);
 					break;
+					case SDLK_UP:
+						camera->ProcessKeyboard(V_UP,false);
+					break;
+					case SDLK_DOWN:
+						camera->ProcessKeyboard(V_DOWN,false);
+					break;
+					case SDLK_RIGHT:
+						camera->ProcessKeyboard(V_RIGHT,false);
+					break;
+					case SDLK_LEFT:
+						camera->ProcessKeyboard(V_LEFT,false);
+					break;
 					}
 				break;
 
@@ -387,6 +718,12 @@ private:
 
 				case SDL_MOUSEWHEEL:
 					camera->ProcessMouseScroll(e.wheel.preciseY);
+				break;
+
+				case SDL_MOUSEBUTTONDOWN:
+					for (auto &cube : cubes)
+						if ( cube->flags.isHovered )
+							flags.selectClosest = true;
 				break;
 				}
 			}
@@ -420,24 +757,24 @@ private:
 
 	struct {
 		bool doLoop;
+		bool showDemoMenu;
+		bool selectClosest;
 	} flags;
 
 	int errorval;
 	SDL_Window *window;
 	SDL_GLContext glcontext;
 
-	GLuint VAO;
-	GLuint vertbuff;
-	GLuint colorbuff;
-
 	ImColor clear_color;
-	float cubeSpeed;
 
 	std::chrono::_V2::steady_clock::time_point start;
 
+	std::vector<std::shared_ptr<myCube> > cubes;
+
 	std::shared_ptr<Camera> camera;
-	_shader shader;
-	float rot, alpha;
+
+	std::unique_ptr<_shader> origin;
+	GLuint originVAO, originvertbuff, origincolorbuff;
 };
 
 int main()
