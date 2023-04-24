@@ -7,7 +7,10 @@ SDLINC = -I./vcpkg/installed/x64-linux/include/SDL2/
 GLMINC = -I./vcpkg/installed/x64-linux/include/glm/
 LIBS = $(wildcard ./vcpkg/installed/x64-linux/lib/*.a) -ldl -lpthread
 
-all: bin/sdlgl bin/sdlglimgui
+all: bin/sdlgl bin/sdlglimgui bin/sdlglimguitextured
+
+bin/sdlglimguitextured: sdlglimguitextured.cpp shader.o camera.o
+	$(CXX) $(CFLAGS) $(INCLUDE) $(IMGUIINC) -o $@ $^ $(LIBS) -lGL
 
 bin/sdlglimgui: sdlglimgui.cpp shader.o camera.o
 	$(CXX) $(CFLAGS) $(INCLUDE) $(IMGUIINC) -o $@ $^ $(LIBS) -lGL

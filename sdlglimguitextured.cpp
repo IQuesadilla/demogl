@@ -75,15 +75,50 @@ public:
 		glGenVertexArrays(1,&VAO);
 		glBindVertexArray(VAO);
 
+		SDL_Surface *icon = SDL_LoadBMP("assets/uvtemplate.bmp");
+		if (icon == NULL)
+		{
+			std::cout << "Failed to load image" << std::endl;
+			return;
+		}
+
+	
+		glGenTextures(1, &texbuff);
+		glBindTexture(GL_TEXTURE_2D, texbuff);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+		GLuint format, iformat;
+		if (icon->format->BitsPerPixel == 32)
+		{
+			format = GL_BGRA;
+			iformat = GL_RGBA;
+		}
+		else
+		{
+			format = GL_BGR;
+			iformat = GL_RGB;
+		}
+
+		glTexImage2D( GL_TEXTURE_2D, 0, iformat, icon->w, icon->h, 0, format, GL_UNSIGNED_BYTE, icon->pixels );
+
+		SDL_FreeSurface(icon);
+	
+
+		glGenerateMipmap(GL_TEXTURE_2D);
+
 		// Generate a Vertex Buffer Object to represent the cube's vertices
 		glGenBuffers(1,&vertbuff);
 		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertData), vertData, GL_STATIC_DRAW);
 
 		// Generate a Vertex Buffer Object to represent the cube's colors
-		glGenBuffers(1, &colorbuff);
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(colorData), colorData, GL_STATIC_DRAW);
+		glGenBuffers(1, &uvbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(imgUV), imgUV, GL_STATIC_DRAW);
 
 		rotAxis = glm::vec3(0.f);
 		spinAxis = glm::vec3(0.f);
@@ -96,7 +131,7 @@ public:
 
 		shader = new _shader();
 		// Load and compile the basic demo shaders, returns true if error
-		if ( shader->load("assets/basic_colored.vert","assets/basic_colored.frag") )
+		if ( shader->load("assets/basic_textured.vert","assets/basic_textured.frag") )
 		{
 			std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
 			return;
@@ -111,7 +146,7 @@ public:
 	~myCube()
 	{
 		delete shader;
-		glDeleteBuffers(1,&colorbuff);
+		glDeleteBuffers(1,&uvbuff);
 		glDeleteBuffers(1,&vertbuff);
 		glDeleteVertexArrays(1,&VAO);
 	}
@@ -157,8 +192,16 @@ public:
 
 		glBindVertexArray(VAO);
 
-		if ( !flags.isSelected )	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-		else						glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+		if ( !flags.isSelected )
+		{
+			glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+			glDisable(GL_CULL_FACE);
+		}
+		else
+		{
+			glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+			glEnable(GL_CULL_FACE);
+		}
 
 		//if ( flags.isHovered )
 		//	alpha = 0.3f;
@@ -177,6 +220,10 @@ public:
 
 		flags.isClosest = false;
 
+		// Enable location 0 and location 1 in the shader
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+
 		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
 		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
 		glVertexAttribPointer(
@@ -189,15 +236,20 @@ public:
 		);
 
 		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
 		glVertexAttribPointer(
 			1,                  // location
-			3,                  // size (per vertex)
+			2,                  // size (per vertex)
 			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
 			GL_FALSE,           // is normalized*
 			0,                  // stride**
 			(void*)0            // array buffer offset
 		);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texbuff);
+
+		shader->setInt("myTextureSampler", 0);
 
 		// * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
 		// * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
@@ -205,10 +257,6 @@ public:
 
 		// ** 0 means tightly packed, in this case 0 means OpenGL should automatically calculate size * sizeof(GLFloat) = 12
 		// ** no distance from "how many bytes it is from the start of one element to the start of another"
-
-		// Enable location 0 and location 1 in the shader
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
 
 		// Draw the cube
 		glDrawArrays(GL_TRIANGLES, 0, 12*3);
@@ -229,7 +277,7 @@ public:
 		bool isClosest;
 	} flags;
 
-	GLuint VAO, vertbuff, colorbuff;
+	GLuint VAO, vertbuff, uvbuff, texbuff;
 	float alpha;
 	glm::vec3 trans, rotAxis, spinAxis, spin;
 	_shader *shader;
@@ -347,8 +395,8 @@ public:
 		glBindBuffer(GL_ARRAY_BUFFER, originvertbuff);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(originVerts), originVerts, GL_STATIC_DRAW);
 
-		glGenBuffers(1,&origincolorbuff);
-		glBindBuffer(GL_ARRAY_BUFFER, origincolorbuff);
+		glGenBuffers(1,&originuvbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, originuvbuff);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(originColors), originColors, GL_STATIC_DRAW);
 
 		glLineWidth(2.0f);
@@ -356,6 +404,8 @@ public:
 		// Enable depth test - makes things in front appear in front
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
+
+		glEnable(GL_TEXTURE_2D);
 
 		clear_color = ImVec4(0.2f, 0.3f, 0.3f, 1.0f);
 
@@ -450,9 +500,6 @@ public:
 
 		for (auto &cube : cubes)
 		{
-			if (cube->flags.isSelected) glEnable(GL_CULL_FACE);
-			else						glDisable(GL_CULL_FACE);
-
 			if (cube->alpha == 1.0f && !cube->flags.isClosest)
 				cube->render(projection,view,deltaTime, camera);
 			else
@@ -492,7 +539,7 @@ public:
 			(void*)0            // array buffer offset
 		);
 
-		glBindBuffer(GL_ARRAY_BUFFER, origincolorbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, originuvbuff);
 		glVertexAttribPointer(
 			1,                  // location
 			3,                  // size (per vertex)
@@ -515,7 +562,6 @@ public:
 
 
 		//glDepthMask( GL_FALSE );
-		glDisable(GL_CULL_FACE);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		for (auto &cube : sorted)
@@ -595,7 +641,9 @@ public:
 		ImGui::Text("Yaw: %.3f, Pitch: %.3f", camera->Yaw, camera->Pitch);
 		ImGui::Text("Zoom: %.3f", camera->Zoom);
 
-		std::string crosshair = "   |   \n---+---\n   |   ";
+		std::string crosshair = "   |   \n"\
+								"---+---\n"\
+								"   |   ";
 		auto windowSize = ImGui::GetWindowSize();
 		auto textSize   = ImGui::CalcTextSize(crosshair.c_str());
 
@@ -774,7 +822,7 @@ private:
 	std::shared_ptr<Camera> camera;
 
 	std::unique_ptr<_shader> origin;
-	GLuint originVAO, originvertbuff, origincolorbuff;
+	GLuint originVAO, originvertbuff, originuvbuff;
 };
 
 int main()
