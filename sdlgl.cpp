@@ -15,7 +15,6 @@
 
 #define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
-#define ENABLE_MCAP true
 #define AA_LEVEL 0
 #define WWIDTH 640
 #define WHEIGHT 480
@@ -41,7 +40,7 @@ public:
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 		#if AA_LEVEL
-			// Enable 8x Antialiasing
+			// Enable Antialiasing
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, AA_LEVEL);
 			glEnable(GL_MULTISAMPLE);
@@ -95,19 +94,8 @@ public:
 			return;
 		}
 
+		// This should happen by default, but just to be sure, attach the glcontext to the window
 		SDL_GL_MakeCurrent(window, glcontext);
-
-		// Relative Mouse Mode will capture the mouse keep it centered within the window (like a videogame)
-		// Otherwise, just make it invisible
-		#if ENABLE_MCAP
-			if ( SDL_SetRelativeMouseMode(SDL_TRUE) != 0 )
-			{
-				std::cout << "Couldn't capture mouse! SDL Error: " << SDL_GetError() << std::endl;
-				return;
-			}
-		#else
-			SDL_SetWindowGrab(window,SDL_TRUE);
-		#endif
 
 		// Load window icon and set if successfully loaded
 		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
@@ -141,13 +129,35 @@ public:
 
 		// Generate a Vertex Buffer Object to represent the cube's vertices
 		glGenBuffers(1,&vertbuff);
-		glBindBuffer(GL_ARRAY_BUFFER,vertbuff);
+		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertData), vertData, GL_STATIC_DRAW);
 
 		// Generate a Vertex Buffer Object to represent the cube's colors
 		glGenBuffers(1, &colorbuff);
 		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(colorData), colorData, GL_STATIC_DRAW);
+
+		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
+		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
+		glVertexAttribPointer(
+			0,                  // location
+			3,                  // size (per vertex)
+			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+			GL_FALSE,           // is normalized*
+			0,                  // stride**
+			(void*)0            // array buffer offset
+		);
+
+		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
+		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
+		glVertexAttribPointer(
+			1,                  // location
+			3,                  // size (per vertex)
+			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+			GL_FALSE,           // is normalized*
+			0,                  // stride**
+			(void*)0            // array buffer offset
+		);
 
 		// Load and compile the basic demo shaders, returns true if error
 		if ( shader.load("assets/basic_colored.vert","assets/basic_colored.frag") )
@@ -170,6 +180,9 @@ public:
 
 	~gldemo()
 	{
+		glDeleteBuffers(1,&colorbuff);
+		glDeleteBuffers(1,&vertbuff);
+		glDeleteVertexArrays(1,&VAO);
 		// Properly shutdown OpenGL and destroy the window
 		SDL_GL_DeleteContext(glcontext);
 		SDL_DestroyWindow(window);
@@ -212,28 +225,6 @@ public:
 		shader.setMat4("view",view);				// GLSL: uniform mat4 view;
 		shader.setMat4("projection",projection);	// GLSL: uniform mat4 projection;
 
-		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
-		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
-		glVertexAttribPointer(
-			0,                  // location
-			3,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
-
-		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
-		glVertexAttribPointer(
-			1,                  // location
-			3,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
-
 		// * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
 		// * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
 		// * to floating point. Otherwise, values will be converted to floats directly without normalization. 
@@ -270,94 +261,109 @@ private:
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
+			// Only check for movement if the mouse is currently captured
+			if ( SDL_GetRelativeMouseMode() == SDL_TRUE )
+			{
+				switch (e.type)
+				{
+				case SDL_KEYDOWN:
+					switch (e.key.keysym.sym)
+					{
+					case SDLK_w:
+						camera->ProcessKeyboard(FORWARD,true);
+					break;
+					case SDLK_s:
+						camera->ProcessKeyboard(BACKWARD,true);
+					break;
+					case SDLK_d:
+						camera->ProcessKeyboard(RIGHT,true);
+					break;
+					case SDLK_a:
+						camera->ProcessKeyboard(LEFT,true);
+					break;
+					case SDLK_SPACE:
+						camera->ProcessKeyboard(UP,true);
+					break;
+					case SDLK_LSHIFT:
+						camera->ProcessKeyboard(DOWN,true);
+					break;
+					case SDLK_UP:
+						camera->ProcessKeyboard(V_UP,true);
+					break;
+					case SDLK_DOWN:
+						camera->ProcessKeyboard(V_DOWN,true);
+					break;
+					case SDLK_RIGHT:
+						camera->ProcessKeyboard(V_RIGHT,true);
+					break;
+					case SDLK_LEFT:
+						camera->ProcessKeyboard(V_LEFT,true);
+					break;
+					}
+				break;
+
+				case SDL_KEYUP:
+					switch (e.key.keysym.sym)
+					{
+					case SDLK_w:
+						camera->ProcessKeyboard(FORWARD,false);
+					break;
+					case SDLK_s:
+						camera->ProcessKeyboard(BACKWARD,false);
+					break;
+					case SDLK_d:
+						camera->ProcessKeyboard(RIGHT,false);
+					break;
+					case SDLK_a:
+						camera->ProcessKeyboard(LEFT,false);
+					break;
+					case SDLK_SPACE:
+						camera->ProcessKeyboard(UP,false);
+					break;
+					case SDLK_LSHIFT:
+						camera->ProcessKeyboard(DOWN,false);
+					break;
+					case SDLK_UP:
+						camera->ProcessKeyboard(V_UP,false);
+					break;
+					case SDLK_DOWN:
+						camera->ProcessKeyboard(V_DOWN,false);
+					break;
+					case SDLK_RIGHT:
+						camera->ProcessKeyboard(V_RIGHT,false);
+					break;
+					case SDLK_LEFT:
+						camera->ProcessKeyboard(V_LEFT,false);
+					break;
+					}
+				break;
+
+				case SDL_MOUSEMOTION:
+					camera->ProcessMouseMovement(e.motion.xrel,e.motion.yrel,true);
+				break;
+
+				case SDL_MOUSEWHEEL:
+					camera->ProcessMouseScroll(e.wheel.preciseY);
+				break;
+				}
+			}
+
 			switch (e.type)
 			{
 			case SDL_KEYDOWN:
 				switch (e.key.keysym.sym)
 				{
-				case SDLK_w:
-					camera->ProcessKeyboard(FORWARD,true);
-				break;
-				case SDLK_s:
-					camera->ProcessKeyboard(BACKWARD,true);
-				break;
-				case SDLK_d:
-					camera->ProcessKeyboard(RIGHT,true);
-				break;
-				case SDLK_a:
-					camera->ProcessKeyboard(LEFT,true);
-				break;
-				case SDLK_SPACE:
-					camera->ProcessKeyboard(UP,true);
-				break;
-				case SDLK_LSHIFT:
-					camera->ProcessKeyboard(DOWN,true);
-				break;
-				case SDLK_UP:
-					camera->ProcessKeyboard(V_UP,true);
-				break;
-				case SDLK_DOWN:
-					camera->ProcessKeyboard(V_DOWN,true);
-				break;
-				case SDLK_RIGHT:
-					camera->ProcessKeyboard(V_RIGHT,true);
-				break;
-				case SDLK_LEFT:
-					camera->ProcessKeyboard(V_LEFT,true);
-				break;
 				case SDLK_ESCAPE:
 					flags.doLoop = false;
 				break;
 				case SDLK_f:
 					// Check if my fullscreen flag is set, set it to opposite
-					bool isF = SDL_GetWindowFlags(window) & myFFlag;
-					SDL_SetWindowFullscreen(window, isF ? 0 : myFFlag);
+					SDL_SetWindowFullscreen(window, (SDL_GetWindowFlags(window) & myFFlag) ? 0 : myFFlag);
+				break;
+				case SDLK_m:
+					SDL_SetRelativeMouseMode( SDL_GetRelativeMouseMode() ? SDL_FALSE : SDL_TRUE );
 				break;
 				}
-			break;
-
-			case SDL_KEYUP:
-				switch (e.key.keysym.sym)
-				{
-				case SDLK_w:
-					camera->ProcessKeyboard(FORWARD,false);
-				break;
-				case SDLK_s:
-					camera->ProcessKeyboard(BACKWARD,false);
-				break;
-				case SDLK_d:
-					camera->ProcessKeyboard(RIGHT,false);
-				break;
-				case SDLK_a:
-					camera->ProcessKeyboard(LEFT,false);
-				break;
-				case SDLK_SPACE:
-					camera->ProcessKeyboard(UP,false);
-				break;
-				case SDLK_LSHIFT:
-					camera->ProcessKeyboard(DOWN,false);
-				break;
-				case SDLK_UP:
-					camera->ProcessKeyboard(V_UP,false);
-				break;
-				case SDLK_DOWN:
-					camera->ProcessKeyboard(V_DOWN,false);
-				break;
-				case SDLK_RIGHT:
-					camera->ProcessKeyboard(V_RIGHT,false);
-				break;
-				case SDLK_LEFT:
-					camera->ProcessKeyboard(V_LEFT,false);
-				break;
-				}
-			break;
-
-			case SDL_MOUSEMOTION:
-				camera->ProcessMouseMovement(e.motion.xrel,e.motion.yrel,true);
-			break;
-
-			case SDL_MOUSEWHEEL:
-				camera->ProcessMouseScroll(e.wheel.preciseY);
 			break;
 
 			// On ANY winow related event, make sure the size is updated

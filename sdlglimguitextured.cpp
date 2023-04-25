@@ -22,7 +22,7 @@
 
 #define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
-#define AA_LEVEL 2
+#define AA_LEVEL 0
 #define WWIDTH 640
 #define WHEIGHT 480
 
@@ -107,7 +107,6 @@ public:
 
 		SDL_FreeSurface(icon);
 	
-
 		glGenerateMipmap(GL_TEXTURE_2D);
 
 		// Generate a Vertex Buffer Object to represent the cube's vertices
@@ -119,6 +118,31 @@ public:
 		glGenBuffers(1, &uvbuff);
 		glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(imgUV), imgUV, GL_STATIC_DRAW);
+
+				// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
+		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
+		glVertexAttribPointer(
+			0,                  // location
+			3,                  // size (per vertex)
+			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+			GL_FALSE,           // is normalized*
+			0,                  // stride**
+			(void*)0            // array buffer offset
+		);
+
+		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
+		glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
+		glVertexAttribPointer(
+			1,                  // location
+			2,                  // size (per vertex)
+			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+			GL_FALSE,           // is normalized*
+			0,                  // stride**
+			(void*)0            // array buffer offset
+		);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texbuff);
 
 		rotAxis = glm::vec3(0.f);
 		spinAxis = glm::vec3(0.f);
@@ -223,31 +247,6 @@ public:
 		// Enable location 0 and location 1 in the shader
 		glEnableVertexAttribArray(0);
 		glEnableVertexAttribArray(1);
-
-		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
-		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
-		glVertexAttribPointer(
-			0,                  // location
-			3,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
-
-		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-		glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
-		glVertexAttribPointer(
-			1,                  // location
-			2,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texbuff);
 
 		shader->setInt("myTextureSampler", 0);
 
@@ -435,6 +434,7 @@ public:
 		SDL_ShowWindow(window);
 
 		flags.selectClosest = false;
+		fontSize = 1.0f;
 
 		// If here, initialization succeeded and loop should be enabled
 		flags.doLoop = true;
@@ -597,6 +597,9 @@ public:
 			ImGui::SameLine();
 			if ( ImGui::Button("Clear Cubes") ) clearCubes = true;
 			ImGui::ColorEdit3("Background Color", (float*)&clear_color); // Edit 3 floats representing a color
+			
+			ImGui::DragFloat("Font Size", &fontSize, 0.01f);
+			ImGui::SetWindowFontScale(fontSize);
 
 			ImGui::Text("Cubes: %ld, Sorted: %ld", cubes.size(), sorted.size());
 
@@ -632,6 +635,8 @@ public:
 												ImGuiWindowFlags_NoInputs |
 												ImGuiWindowFlags_NoNav );
 		ImGui::SetWindowPos({0,0});
+
+		ImGui::SetWindowFontScale(fontSize);
 
 		ImGui::SetWindowSize( ImGui::GetIO().DisplaySize );
 
@@ -812,6 +817,8 @@ private:
 	int errorval;
 	SDL_Window *window;
 	SDL_GLContext glcontext;
+
+	float fontSize;
 
 	ImColor clear_color;
 

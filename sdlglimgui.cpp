@@ -22,7 +22,7 @@
 
 #define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
-#define AA_LEVEL 2
+#define AA_LEVEL 0
 #define WWIDTH 640
 #define WHEIGHT 480
 
@@ -84,6 +84,28 @@ public:
 		glGenBuffers(1, &colorbuff);
 		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(colorData), colorData, GL_STATIC_DRAW);
+
+		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
+		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
+		glVertexAttribPointer(
+			0,                  // location
+			3,                  // size (per vertex)
+			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+			GL_FALSE,           // is normalized*
+			0,                  // stride**
+			(void*)0            // array buffer offset
+		);
+
+		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
+		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
+		glVertexAttribPointer(
+			1,                  // location
+			3,                  // size (per vertex)
+			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+			GL_FALSE,           // is normalized*
+			0,                  // stride**
+			(void*)0            // array buffer offset
+		);
 
 		rotAxis = glm::vec3(0.f);
 		spinAxis = glm::vec3(0.f);
@@ -176,28 +198,6 @@ public:
 		else shader->setFloat("alpha",alpha);
 
 		flags.isClosest = false;
-
-		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
-		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
-		glVertexAttribPointer(
-			0,                  // location
-			3,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
-
-		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
-		glVertexAttribPointer(
-			1,                  // location
-			3,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
 
 		// * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
 		// * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
