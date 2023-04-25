@@ -16,7 +16,7 @@
 #define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
 #define ENABLE_MCAP true
-#define AA_LEVEL 4
+#define AA_LEVEL 0
 #define WWIDTH 640
 #define WHEIGHT 480
 
@@ -126,6 +126,7 @@ public:
 		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
 		camera->setViewSize(WWIDTH,WHEIGHT);
 		camera->MovementSpeed = 0.01f;
+		camera->BinarySensitivity = 4.0f;
 
 		// Enable depth test - makes things in front appear in front
 		glEnable(GL_DEPTH_TEST);
@@ -292,6 +293,18 @@ private:
 				case SDLK_LSHIFT:
 					camera->ProcessKeyboard(DOWN,true);
 				break;
+				case SDLK_UP:
+					camera->ProcessKeyboard(V_UP,true);
+				break;
+				case SDLK_DOWN:
+					camera->ProcessKeyboard(V_DOWN,true);
+				break;
+				case SDLK_RIGHT:
+					camera->ProcessKeyboard(V_RIGHT,true);
+				break;
+				case SDLK_LEFT:
+					camera->ProcessKeyboard(V_LEFT,true);
+				break;
 				case SDLK_ESCAPE:
 					flags.doLoop = false;
 				break;
@@ -323,6 +336,18 @@ private:
 				break;
 				case SDLK_LSHIFT:
 					camera->ProcessKeyboard(DOWN,false);
+				break;
+				case SDLK_UP:
+					camera->ProcessKeyboard(V_UP,false);
+				break;
+				case SDLK_DOWN:
+					camera->ProcessKeyboard(V_DOWN,false);
+				break;
+				case SDLK_RIGHT:
+					camera->ProcessKeyboard(V_RIGHT,false);
+				break;
+				case SDLK_LEFT:
+					camera->ProcessKeyboard(V_LEFT,false);
 				break;
 				}
 			break;
