@@ -149,7 +149,7 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, sizeof(colorData), colorData, GL_STATIC_DRAW);
 
 		// Load and compile the basic demo shaders, returns true if error
-		if ( shader.load("assets/demo.vert","assets/demo.frag") )
+		if ( shader.load("assets/basic_colored.vert","assets/basic_colored.frag") )
 		{
 			std::cout << "Failed to load shaders!" << std::endl << shader.getErrors() << std::endl;
 			return;
