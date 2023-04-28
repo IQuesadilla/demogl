@@ -2,7 +2,6 @@
 
 #include "SDL.h"
 #include <SDL_opengl.h>
-#include "origin/origin.h"
 #include "shader/shader.h"
 #include "camera/camera.h"
 #include <iostream>
@@ -26,263 +25,6 @@
 #define AA_LEVEL 0
 #define WWIDTH 640
 #define WHEIGHT 480
-
-bool RaycastRotatedCube(const glm::vec3& cubeExtents, const glm::mat4& cubeTransform, const glm::vec3& rayOrigin, const glm::vec3& rayDir)
-{
-    // Compute the inverse transformation matrix for the cube
-    glm::mat4 inverseTransform = glm::inverse(cubeTransform);
-
-    // Transform the ray into the coordinate space of the cube
-    glm::vec3 localRayOrigin = glm::vec3(inverseTransform * glm::vec4(rayOrigin, 1.0));
-    glm::vec3 localRayDir = glm::normalize(glm::vec3(inverseTransform * glm::vec4(rayDir, 0.0)));
-
-    // Compute the inverse of the cube's extents
-    glm::vec3 inverseExtents = glm::vec3(1.0) / cubeExtents;
-
-    // Compute the minimum and maximum intersection times for the x-axis
-    float txMin = (inverseExtents.x * (-cubeExtents.x - localRayOrigin.x)) / localRayDir.x;
-    float txMax = (inverseExtents.x * ( cubeExtents.x - localRayOrigin.x)) / localRayDir.x;
-
-    // Compute the minimum and maximum intersection times for the y-axis
-    float tyMin = (inverseExtents.y * (-cubeExtents.y - localRayOrigin.y)) / localRayDir.y;
-    float tyMax = (inverseExtents.y * ( cubeExtents.y - localRayOrigin.y)) / localRayDir.y;
-
-    // Compute the minimum and maximum intersection times for the z-axis
-    float tzMin = (inverseExtents.z * (-cubeExtents.z - localRayOrigin.z)) / localRayDir.z;
-    float tzMax = (inverseExtents.z * ( cubeExtents.z - localRayOrigin.z)) / localRayDir.z;
-
-    // Compute the maximum and minimum intersection times for the whole cube
-    float tMin = glm::max(glm::max(glm::min(txMin, txMax), glm::min(tyMin, tyMax)), glm::min(tzMin, tzMax));
-    float tMax = glm::min(glm::min(glm::max(txMin, txMax), glm::max(tyMin, tyMax)), glm::max(tzMin, tzMax));
-
-	//std::cout << "tMin: " << tMin << ", tMax: " << tMax << std::endl;
-
-    // Check if the ray intersects the cube
-    if (tMin > tMax || tMax < 0.0f)
-    {
-        // The ray missed the cube
-        return false;
-    }
-
-    // The ray intersects the cube
-    return true;
-}
-
-class myCube
-{
-public:
-	myCube()
-	{
-		glGenVertexArrays(1,&VAO);
-		glBindVertexArray(VAO);
-
-		SDL_Surface *icon = SDL_LoadBMP("assets/uvtemplate.bmp");
-		if (icon == NULL)
-		{
-			std::cout << "Failed to load image" << std::endl;
-			return;
-		}
-
-	
-		glGenTextures(1, &texbuff);
-		glBindTexture(GL_TEXTURE_2D, texbuff);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-		GLuint format, iformat;
-		if (icon->format->BitsPerPixel == 32)
-		{
-			format = GL_BGRA;
-			iformat = GL_RGBA;
-		}
-		else
-		{
-			format = GL_BGR;
-			iformat = GL_RGB;
-		}
-
-		glTexImage2D( GL_TEXTURE_2D, 0, iformat, icon->w, icon->h, 0, format, GL_UNSIGNED_BYTE, icon->pixels );
-
-		SDL_FreeSurface(icon);
-	
-		glGenerateMipmap(GL_TEXTURE_2D);
-
-		// Generate a Vertex Buffer Object to represent the cube's vertices
-		glGenBuffers(1,&vertbuff);
-		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertData), vertData, GL_STATIC_DRAW);
-
-		// Generate a Vertex Buffer Object to represent the cube's colors
-		glGenBuffers(1, &uvbuff);
-		glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(imgUV), imgUV, GL_STATIC_DRAW);
-
-				// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
-		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
-		glVertexAttribPointer(
-			0,                  // location
-			3,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
-
-		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-		glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
-		glVertexAttribPointer(
-			1,                  // location
-			2,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texbuff);
-
-		rotAxis = glm::vec3(0.f);
-		spinAxis = glm::vec3(0.f);
-		alpha = 1.0f;
-		trans = glm::vec3(0.f);
-
-		flags.isHovered = false;
-		flags.isSelected = false;
-		flags.isClosest = false;
-
-		shader = new _shader();
-		// Load and compile the basic demo shaders, returns true if error
-		if ( shader->load("assets/basic_textured.vert","assets/basic_textured.frag") )
-		{
-			std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
-			return;
-		}
-	}
-
-	myCube(myCube *temp)
-	{
-		memcpy(this,temp,sizeof(myCube));
-	}
-
-	~myCube()
-	{
-		delete shader;
-		glDeleteBuffers(1,&uvbuff);
-		glDeleteBuffers(1,&vertbuff);
-		glDeleteVertexArrays(1,&VAO);
-	}
-
-	void render(glm::mat4 projection, glm::mat4 view, float deltaTime, std::shared_ptr<Camera> cam)
-	{
-		//if ( !(speed > -0.01f && speed < 0.01f) )
-		rotAxis += deltaTime*spinAxis;
-
-		if (rotAxis.x > 360.f)
-			rotAxis.x -= 360.f;
-		if (rotAxis.y > 360.f)
-			rotAxis.y -= 360.f;
-		if (rotAxis.z > 360.f)
-			rotAxis.z -= 360.f;
-
-		if (rotAxis.x < 0.f)
-			rotAxis.x += 360.f;
-		if (rotAxis.y < 0.f)
-			rotAxis.y += 360.f;
-		if (rotAxis.z < 0.f)
-			rotAxis.z += 360.f;
-
-		glm::mat4 model = glm::mat4(1.0f);
-
-		model = glm::translate(model, trans);
-
-		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
-			glm::angleAxis(							// Angle axis has two arguments - angle and axis
-				glm::radians(rotAxis.x),					// The angle to rotate all the vertices, converts deg to rad
-				glm::vec3(1.f,0.f,0.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
-		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
-			glm::angleAxis(							// Angle axis has two arguments - angle and axis
-				glm::radians(rotAxis.y),					// The angle to rotate all the vertices, converts deg to rad
-				glm::vec3(0.f,1.f,0.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
-		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
-			glm::angleAxis(							// Angle axis has two arguments - angle and axis
-				glm::radians(rotAxis.z),					// The angle to rotate all the vertices, converts deg to rad
-				glm::vec3(0.f,0.f,1.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
-
-		//glm::vec3 lookingDirection = glm::vec3(cam->Front)
-		flags.isHovered = RaycastRotatedCube(glm::vec3(1.0f, 1.0f, 1.0f), model, cam->Position, cam->Front);
-
-		glBindVertexArray(VAO);
-
-		if ( !flags.isSelected )
-		{
-			glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-			glDisable(GL_CULL_FACE);
-		}
-		else
-		{
-			glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-			glEnable(GL_CULL_FACE);
-		}
-
-		//if ( flags.isHovered )
-		//	alpha = 0.3f;
-		//else
-		//	alpha = 1.0f;
-
-		// Use shader "shader" and give it all 3 uniforms
-		shader->use();
-		shader->setMat4("model",model);				// GLSL: uniform mat4 model;
-		shader->setMat4("view",view);				// GLSL: uniform mat4 view;
-		shader->setMat4("projection",projection);	// GLSL: uniform mat4 projection;
-
-		if (flags.isClosest)
-			shader->setFloat("alpha",alpha/2);
-		else shader->setFloat("alpha",alpha);
-
-		flags.isClosest = false;
-
-		// Enable location 0 and location 1 in the shader
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-
-		shader->setInt("myTextureSampler", 0);
-
-		// * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
-		// * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
-		// * to floating point. Otherwise, values will be converted to floats directly without normalization. 
-
-		// ** 0 means tightly packed, in this case 0 means OpenGL should automatically calculate size * sizeof(GLFloat) = 12
-		// ** no distance from "how many bytes it is from the start of one element to the start of another"
-
-		// Draw the cube
-		glDrawArrays(GL_TRIANGLES, 0, 12*3);
-
-		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(VAO, 0);
-		glDisableVertexArrayAttrib(VAO, 1);
-	}
-
-	float distance(glm::vec3 pos)
-	{
-		return glm::abs(glm::distance(pos,trans));
-	}
-
-	struct {
-		bool isHovered;
-		bool isSelected;
-		bool isClosest;
-	} flags;
-
-	GLuint VAO, vertbuff, uvbuff, texbuff;
-	float alpha;
-	glm::vec3 trans, rotAxis, spinAxis, spin;
-	_shader *shader;
-	glm::vec3 hitPoint;
-};
 
 class gldemo
 {
@@ -379,8 +121,6 @@ public:
 		camera->setViewSize(WWIDTH,WHEIGHT);
 		camera->MovementSpeed = 0.01f;
 		camera->BinarySensitivity = 2.0f;
-
-		origin.reset( new Origin() );
 
 		glLineWidth(2.0f);
 
@@ -506,9 +246,6 @@ public:
 				}
 			}
 		}
-
-		origin->render(projection,view);
-
 
 		//glDepthMask( GL_FALSE );
 		glEnable(GL_BLEND);
@@ -776,8 +513,6 @@ private:
 	std::vector<std::shared_ptr<myCube> > cubes;
 
 	std::shared_ptr<Camera> camera;
-
-	std::unique_ptr<Origin> origin;
 };
 
 int main()

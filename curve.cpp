@@ -3,6 +3,7 @@
 #include "SDL.h"
 #include <SDL_opengl.h>
 #include "shader/shader.h"
+#include "origin/origin.h"
 #include "camera/camera.h"
 #include <iostream>
 #include <memory>
@@ -116,6 +117,10 @@ public:
 		camera->MovementSpeed = 0.01f;
 		camera->BinarySensitivity = 4.0f;
 
+		origin.reset( new Origin() );
+
+		glLineWidth(2.0f);
+
 		// Enable depth test - makes things in front appear in front
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
@@ -127,40 +132,23 @@ public:
 		glGenVertexArrays(1,&VAO);
 		glBindVertexArray(VAO);
 
-		// Generate a Vertex Buffer Object to represent the cube's vertices
-		glGenBuffers(1,&vertbuff);
-		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertData), vertData, GL_STATIC_DRAW);
-
-		// Generate a Vertex Buffer Object to represent the cube's colors
-		glGenBuffers(1, &colorbuff);
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(colorData), colorData, GL_STATIC_DRAW);
-
-		// Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
-		glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
-		glVertexAttribPointer(
-			0,                  // location
-			3,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
-
-		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
-		glVertexAttribPointer(
-			1,                  // location
-			3,                  // size (per vertex)
-			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-			GL_FALSE,           // is normalized*
-			0,                  // stride**
-			(void*)0            // array buffer offset
-		);
+		const char *funcsrc = "\
+		vec3 Mf(float Mt) {\n\
+			return vec3(cos(Mt),sin(Mt),sin(Mt));\n\
+		}\
+		";
 
 		// Load and compile the basic demo shaders, returns true if error
-		if ( shader.load("assets/basic_colored.vert","assets/basic_colored.frag") )
+		shader.addVertRaw(std::string(funcsrc));
+		if ( shader.load("assets/curve.vert","assets/curve.frag") )
+		{
+			std::cout << "Failed to load shaders!" << std::endl << shader.getErrors() << std::endl;
+			return;
+		}
+
+		// Load and compile the basic demo shaders, returns true if error
+		intshader.addVertRaw(std::string(funcsrc));
+		if ( intshader.load("assets/integral.vert","assets/integral.frag") )
 		{
 			std::cout << "Failed to load shaders!" << std::endl << shader.getErrors() << std::endl;
 			return;
@@ -204,65 +192,39 @@ public:
 		// Calculate new matrices given the time since the last frame
 		camera->InputUpdate(deltaTime);
 
+		float curveLen = glm::pi<float>() * 2.f;
+		float tSteps = 20.0f;
+
 		// Projection and view are the same per model because they are affected by the camera
-		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,300.0f);
+		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,1000.0f);
 		glm::mat4 view = camera->GetViewMatrix();
 		glm::mat4 model = glm::mat4(1.0f);
 
-		// These processes apply to each individual model
-		//model = glm::scale(model, glm::vec3(x,y,z));
-		//model = glm::translate(model, glm::vec3(x,y,z));
-		//model = model * glm::toMat4(glm::quat(w,x,y,z));
-
-		model = glm::scale(model, glm::vec3(10.0f,10.0f,10.0f));
-
-		model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
-			glm::angleAxis(							// Angle axis has two arguments - angle and axis
-				glm::radians(rot += deltaTime/60),	// The angle to rotate all the vertices
-				glm::vec3(0.0f, 1.0f, 0.0f)));		// Which axis to apply the rotation to and how much - (x,y,z)
-
-		//model = glm::translate(model, glm::vec3(0.0f,10.0f,0.0f));
-
-		// Use shader "shader" and give it all 3 uniforms
-		shader.use();
-		shader.setMat4("model",model);				// GLSL: uniform mat4 model;
-		shader.setMat4("view",view);				// GLSL: uniform mat4 view;
-		shader.setMat4("projection",projection);	// GLSL: uniform mat4 projection;
-
-		// * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
-		// * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
-		// * to floating point. Otherwise, values will be converted to floats directly without normalization. 
-
-		// ** 0 means tightly packed, in this case 0 means OpenGL should automatically calculate size * sizeof(GLFloat) = 12
-		// ** no distance from "how many bytes it is from the start of one element to the start of another"
-
-		// Enable location 0 and location 1 in the shader
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-
-		// Draw the cube, 12 triangles with 3 vertices per triangle
-		glDrawArrays(GL_TRIANGLES, 0, 12*3);
-
-		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(VAO, 0);
-		glDisableVertexArrayAttrib(VAO, 1);
-
-		model = glm::translate(model, glm::vec3(0.0f,10.0f,0.0f));
+		origin->render(projection, view);
 
 		shader.use();
 		shader.setMat4("model",model);				// GLSL: uniform mat4 model;
 		shader.setMat4("view",view);				// GLSL: uniform mat4 view;
 		shader.setMat4("projection",projection);	// GLSL: uniform mat4 projection;
+		shader.setFloat("tScale", 1.f / tSteps );
+		shader.setVec3("colormask", glm::vec3(1.0f) * tSteps);
 
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
+		// Draw the cube
+		glDrawArrays(GL_LINE_STRIP, 0, curveLen*tSteps);
 
-		// Draw the cube, 12 triangles with 3 vertices per triangle
-		glDrawArrays(GL_TRIANGLES, 0, 12*3);
+		intshader.use();
+		intshader.setMat4("model",model);				// GLSL: uniform mat4 model;
+		intshader.setMat4("view",view);				// GLSL: uniform mat4 view;
+		intshader.setMat4("projection",projection);	// GLSL: uniform mat4 projection;
+		intshader.setFloat("alpha",0.1f);
+		intshader.setFloat("tScale", 1.f / tSteps );
 
-		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(VAO, 0);
-		glDisableVertexArrayAttrib(VAO, 1);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, curveLen*tSteps*4 - 4);
+
+		glDisable(GL_BLEND);
 
 		// Swap the internal framebuffer to the screen
 		SDL_GL_SwapWindow(window);
@@ -416,8 +378,10 @@ private:
 
 	std::chrono::_V2::steady_clock::time_point start;
 
+	std::shared_ptr<Origin> origin;
+
 	std::shared_ptr<Camera> camera;
-	_shader shader;
+	_shader shader, intshader;
 	float rot;
 };
 
