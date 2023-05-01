@@ -114,12 +114,10 @@ public:
 		// +z is towards you, -z is away from you
 		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
 		camera->setViewSize(WWIDTH,WHEIGHT);
-		camera->MovementSpeed = 0.01f;
+		camera->MovementSpeed = 0.005f;
 		camera->BinarySensitivity = 4.0f;
 
 		origin.reset( new Origin() );
-
-		glLineWidth(2.0f);
 
 		// Enable depth test - makes things in front appear in front
 		glEnable(GL_DEPTH_TEST);
@@ -132,9 +130,17 @@ public:
 		glGenVertexArrays(1,&VAO);
 		glBindVertexArray(VAO);
 
+		glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
 		const char *funcsrc = "\
-		vec3 Mf(float Mt) {\n\
-			return vec3(cos(Mt),sin(Mt),sin(Mt));\n\
+		vec3 Mf(float Mt) {\
+			float Ma = 5;\
+			float Mb = 1;\
+			float Mc = 7;\
+			return vec3(\
+				(Ma - Mb)*cos(Mt) + Mc*cos((Ma/Mb - 1)*Mt) ,\
+				(Ma - Mb)*sin(Mt) - Mc*sin((Ma/Mb - 1)*Mt) ,\
+				Mt) / 5;\
 		}\
 		";
 
@@ -160,16 +166,12 @@ public:
 
 		SDL_ShowWindow(window);
 
-		rot = 0.0f;
-
 		// If here, initialization succeeded and loop should be enabled
 		flags.doLoop = true;
 	}
 
 	~gldemo()
 	{
-		glDeleteBuffers(1,&colorbuff);
-		glDeleteBuffers(1,&vertbuff);
 		glDeleteVertexArrays(1,&VAO);
 		// Properly shutdown OpenGL and destroy the window
 		SDL_GL_DeleteContext(glcontext);
@@ -192,39 +194,44 @@ public:
 		// Calculate new matrices given the time since the last frame
 		camera->InputUpdate(deltaTime);
 
-		float curveLen = glm::pi<float>() * 2.f;
-		float tSteps = 20.0f;
+		float curveLen = glm::pi<float>() * 2.f * 100.0f;
+		float tSteps = 200.0f;
 
 		// Projection and view are the same per model because they are affected by the camera
 		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,1000.0f);
 		glm::mat4 view = camera->GetViewMatrix();
 		glm::mat4 model = glm::mat4(1.0f);
 
-		origin->render(projection, view);
+		glLineWidth(2.0f);
+		origin->render(projection, camera->GetRotViewMatrix(), 0.05f);
+		origin->render(projection, view, 1.f);
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		shader.use();
 		shader.setMat4("model",model);				// GLSL: uniform mat4 model;
 		shader.setMat4("view",view);				// GLSL: uniform mat4 view;
 		shader.setMat4("projection",projection);	// GLSL: uniform mat4 projection;
 		shader.setFloat("tScale", 1.f / tSteps );
-		shader.setVec3("colormask", glm::vec3(1.0f) * tSteps);
+		shader.setVec3("colormask", glm::vec3(1.0f,1.0f,1.0f) * tSteps);
+		shader.setFloat("alpha", 1.0f );
+		shader.setInt("startID",-curveLen/2.0f);
 
 		// Draw the cube
-		glDrawArrays(GL_LINE_STRIP, 0, curveLen*tSteps);
+		glLineWidth(5.0f);
+		glDrawArrays(GL_LINE_STRIP, 0, curveLen*tSteps + 2.0f);
 
 		intshader.use();
 		intshader.setMat4("model",model);				// GLSL: uniform mat4 model;
 		intshader.setMat4("view",view);				// GLSL: uniform mat4 view;
 		intshader.setMat4("projection",projection);	// GLSL: uniform mat4 projection;
-		intshader.setFloat("alpha",0.1f);
+		intshader.setInt("startID",-curveLen/2.0f);
+		intshader.setFloat("alpha", 0.0f );
 		intshader.setFloat("tScale", 1.f / tSteps );
 
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, curveLen*tSteps*4 - 4);
-
-		glDisable(GL_BLEND);
+		glLineWidth(1.0f);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, curveLen*tSteps*4 + 4);
 
 		// Swap the internal framebuffer to the screen
 		SDL_GL_SwapWindow(window);
@@ -382,7 +389,6 @@ private:
 
 	std::shared_ptr<Camera> camera;
 	_shader shader, intshader;
-	float rot;
 };
 
 int main()

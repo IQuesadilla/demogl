@@ -1,6 +1,7 @@
 #define GL_GLEXT_PROTOTYPES 1
 
 #include "origin.h"
+#include <gtx/quaternion.hpp>
 
 #include "assets/rawcube.h"
 
@@ -31,13 +32,14 @@ Origin::~Origin()
     ;
 }
 
-void Origin::render(glm::mat4 projection, glm::mat4 view)
+void Origin::render(glm::mat4 projection, glm::mat4 view, float scale)
 {
     glBindVertexArray(VAO);
 
     shader->use();
     shader->setMat4("projection",projection);
     shader->setMat4("view",view);
+    shader->setMat4("model",glm::scale(glm::mat4(1.0f),glm::vec3(scale)));
 
     glBindBuffer(GL_ARRAY_BUFFER, vbuff);
     glVertexAttribPointer(

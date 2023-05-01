@@ -71,7 +71,7 @@ bool RaycastRotatedCube(const glm::vec3& cubeExtents, const glm::mat4& cubeTrans
 class myCube
 {
 public:
-	myCube()
+	myCube(_shader *Shader)
 	{
 		glGenVertexArrays(1,&VAO);
 		glBindVertexArray(VAO);
@@ -154,13 +154,7 @@ public:
 		flags.isSelected = false;
 		flags.isClosest = false;
 
-		shader = new _shader();
-		// Load and compile the basic demo shaders, returns true if error
-		if ( shader->load("assets/basic_textured.vert","assets/basic_textured.frag") )
-		{
-			std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
-			return;
-		}
+		shader = Shader;
 	}
 
 	myCube(myCube *temp)
@@ -170,7 +164,7 @@ public:
 
 	~myCube()
 	{
-		delete shader;
+		//delete shader;
 		glDeleteBuffers(1,&uvbuff);
 		glDeleteBuffers(1,&vertbuff);
 		glDeleteVertexArrays(1,&VAO);
@@ -381,6 +375,7 @@ public:
 		camera->BinarySensitivity = 2.0f;
 
 		origin.reset( new Origin() );
+		flags.cursor3d = true;
 
 		glLineWidth(2.0f);
 
@@ -414,6 +409,21 @@ public:
 			SDL_SetWindowFullscreen(window, myFFlag);
 		#endif
 
+		shader = new _shader();
+		if ( shader->load("assets/basic_textured.vert","assets/basic_textured.frag") )
+		{
+			std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
+			return;
+		}
+
+		cubes.resize(100*100);
+		for (int i = 0; i < 100*100; ++i)
+		{
+			cubes[i] = std::make_shared<myCube>( new myCube(shader) );
+			cubes[i]->trans.x = glm::floor(float(i)/100.0f)*2;
+			cubes[i]->trans.z = glm::floor(i%100)*2;
+		}
+
 		SDL_GL_SetSwapInterval(0);
 		SDL_ShowWindow(window);
 
@@ -446,7 +456,7 @@ public:
 		camera->InputUpdate(deltaTime);
 
 		// Projection and view are the same per model because they are affected by the camera
-		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,100.0f);
+		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,300.0f);
 		glm::mat4 view = camera->GetViewMatrix();
 
 		glDepthMask( GL_TRUE );
@@ -507,7 +517,9 @@ public:
 			}
 		}
 
-		origin->render(projection,view);
+		if (flags.cursor3d)
+			origin->render(projection, camera->GetRotViewMatrix(), 0.05f);
+		origin->render(projection, view, 1.f);
 
 
 		//glDepthMask( GL_FALSE );
@@ -540,6 +552,8 @@ public:
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("DemoMenu")) flags.showDemoMenu = !flags.showDemoMenu;
+			ImGui::SameLine();
+			if (ImGui::Button("Toggle Crosshair")) flags.cursor3d = !flags.cursor3d;
 			ImGui::SameLine();
 			if (ImGui::Button("Quit")) flags.doLoop = false;
 			if ( ImGui::Button("New Cube") ) addCube = true;
@@ -594,16 +608,20 @@ public:
 		ImGui::Text("Camera Direction: %.3f,%.3f,%.3f", camera->Front.x, camera->Front.y, camera->Front.z);
 		ImGui::Text("Yaw: %.3f, Pitch: %.3f", camera->Yaw, camera->Pitch);
 		ImGui::Text("Zoom: %.3f", camera->Zoom);
+		ImGui::Text("Frame Time: %.3f", float((std::chrono::steady_clock::now() - start).count()) / 1000000.0f);
 
-		std::string crosshair = "   |   \n"\
-								"---+---\n"\
-								"   |   ";
-		auto windowSize = ImGui::GetWindowSize();
-		auto textSize   = ImGui::CalcTextSize(crosshair.c_str());
+		if (!flags.cursor3d)
+		{
+			std::string crosshair = "   |   \n"\
+									"---+---\n"\
+									"   |   ";
+			auto windowSize = ImGui::GetWindowSize();
+			auto textSize   = ImGui::CalcTextSize(crosshair.c_str());
 
-		ImGui::SetCursorPosX((windowSize.x - textSize.x) * 0.5f);
-		ImGui::SetCursorPosY((windowSize.y - textSize.y) * 0.5f);
-		ImGui::Text(crosshair.c_str());
+			ImGui::SetCursorPosX((windowSize.x - textSize.x) * 0.5f);
+			ImGui::SetCursorPosY((windowSize.y - textSize.y) * 0.5f);
+			ImGui::Text(crosshair.c_str());
+		}
 
 		ImGui::End();
 
@@ -613,10 +631,7 @@ public:
 		// Swap the internal framebuffer to the screen
 		SDL_GL_SwapWindow(window);
 
-		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		if ( addCube ) cubes.push_back( std::make_shared<myCube>( new myCube() ) );
+		if ( addCube ) cubes.push_back( std::make_shared<myCube>( new myCube(shader) ) );
 		if ( clearCubes ) cubes.clear();
 
 		return;
@@ -761,6 +776,7 @@ private:
 		bool doLoop;
 		bool showDemoMenu;
 		bool selectClosest;
+		bool cursor3d;
 	} flags;
 
 	int errorval;
@@ -778,6 +794,7 @@ private:
 	std::shared_ptr<Camera> camera;
 
 	std::unique_ptr<Origin> origin;
+	_shader *shader;
 };
 
 int main()

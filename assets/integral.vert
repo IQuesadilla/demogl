@@ -7,15 +7,17 @@ uniform float tScale;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform int startID;
 
 void main(){
-    float Mt = floor( float(gl_VertexID) / 4.0 ) * tScale;
+    int cID = gl_VertexID + int( (startID*4) / tScale );
+    float Mt = floor( float(cID) / 4.0 ) * tScale;
     vec3 aPos = Mf(Mt);
 
-    float nMt = floor( float(gl_VertexID + 1) / 4.0 ) * tScale;
+    float nMt = floor( float(cID + 1) / 4.0 ) * tScale;
     vec3 nPos = Mf(nMt);
 
-    switch ( int( mod( gl_VertexID, 4.0 ) ) )
+    switch ( abs( int( mod( cID, 4.0 ) ) ) )
     {
     case 0:
         gl_Position = projection * view * model * vec4(aPos, 1.0);

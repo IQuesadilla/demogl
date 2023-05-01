@@ -11,7 +11,7 @@ public:
     Origin();
     ~Origin();
 
-    void render(glm::mat4 projection, glm::mat4 view);
+    void render(glm::mat4 projection, glm::mat4 view, float model);
 
 private:
     std::shared_ptr<_shader> shader;
