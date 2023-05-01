@@ -130,9 +130,3 @@ myCube::~myCube()
 {
     ;
 }
-
-float distance(glm::vec3 pos)
-{
-    return glm::abs(glm::distance(pos,trans));
-}
-

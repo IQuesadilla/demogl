@@ -18,6 +18,12 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
 
+#include "scene/scene.h"
+#include "renderable/renderable.h"
+#include "origin/origin.h"
+#include "model/model.h"
+#include "model/cube.h"
+
 #include "assets/rawcube.h"
 
 #define FullOnStart false
@@ -122,6 +128,11 @@ public:
 		camera->MovementSpeed = 0.01f;
 		camera->BinarySensitivity = 2.0f;
 
+		world.reset( new GLScene() );
+		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
+		world->models["cube"].reset( new myCube() );
+		world->models["cube"]->shader = world->shaders["basic_textured"];
+
 		glLineWidth(2.0f);
 
 		// Enable depth test - makes things in front appear in front
@@ -195,18 +206,18 @@ public:
 		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		std::list<std::pair<std::shared_ptr<myCube>, float> > sorted;
-		std::pair<std::shared_ptr<myCube>, float> closestHovered
+		std::list<std::pair<std::shared_ptr<Renderable>, float> > sorted;
+		std::pair<std::shared_ptr<Renderable>, float> closestHovered
 			= std::make_pair(nullptr, 1000.0f);
 
-		for (auto &cube : cubes)
+		for (auto &cube : world->renderables)
 		{
-			if (cube->flags.isHovered)
+			if (cube.second->flags.isHovered)
 			{
-				float dis = cube->distance(camera->Position);
+				float dis = cube.second->distance(camera->Position);
 				if ( dis < closestHovered.second )
 				{
-					closestHovered = std::make_pair(cube,dis);
+					closestHovered = std::make_pair(cube.second,dis);
 				}
 			}
 		}
@@ -222,19 +233,19 @@ public:
 			}
 		}
 
-		for (auto &cube : cubes)
+		for (auto &cube : world->renderables)
 		{
-			if (cube->alpha == 1.0f && !cube->flags.isClosest)
-				cube->render(projection,view,deltaTime, camera);
+			if (cube.second->alpha == 1.0f && !cube.second->flags.isClosest)
+				cube.second->render(projection,view,deltaTime);
 			else
 			{
 				bool isInserted = false;
-				float dis = cube->distance(camera->Position);
+				float dis = cube.second->distance(camera->Position);
 				for (auto it = sorted.begin(); it != sorted.end(); it++)
 				{
 					if ( dis > it->second )
 					{
-						sorted.insert(it,std::make_pair(cube,dis));
+						sorted.insert( it, std::make_pair(cube.second,dis) );
 						isInserted = true;
 						break;
 					}
@@ -242,7 +253,7 @@ public:
 
 				if ( !isInserted )
 				{
-					sorted.emplace_back(std::make_pair(cube,dis));
+					sorted.emplace_back(std::make_pair(cube.second,dis));
 				}
 			}
 		}
@@ -252,7 +263,7 @@ public:
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		for (auto &cube : sorted)
 		{
-			cube.first->render(projection,view,deltaTime,camera);
+			cube.first->render(projection,view,deltaTime);
 		}
 		glDisable(GL_BLEND);
 
@@ -287,27 +298,27 @@ public:
 			ImGui::DragFloat("Font Size", &fontSize, 0.01f);
 			ImGui::SetWindowFontScale(fontSize);
 
-			ImGui::Text("Cubes: %ld, Sorted: %ld", cubes.size(), sorted.size());
+			ImGui::Text("Cubes: %ld, Sorted: %ld", world->renderables.size(), sorted.size());
 
 			int i = 0;
-			for (auto &cube : cubes)
+			for (auto &cube : world->renderables)
 			{
 				std::string name = std::to_string(i++);
-				if ( cube->flags.isSelected && ImGui::TreeNode(name.c_str()) )
+				if ( cube.second->flags.isSelected && ImGui::TreeNode(name.c_str()) )
 				{
-					ImGui::SliderFloat("Alpha", &cube->alpha, 0.0f, 1.0f);
+					ImGui::SliderFloat("Alpha", &cube.second->alpha, 0.0f, 1.0f);
 
-					ImGui::DragFloat("Spin X", &cube->spinAxis.x, 0.01f);
-					ImGui::DragFloat("Spin Y", &cube->spinAxis.y, 0.01f);
-					ImGui::DragFloat("Spin Z", &cube->spinAxis.z, 0.01f);
+					ImGui::DragFloat("Spin X", &cube.second->spinAxis.x, 0.01f);
+					ImGui::DragFloat("Spin Y", &cube.second->spinAxis.y, 0.01f);
+					ImGui::DragFloat("Spin Z", &cube.second->spinAxis.z, 0.01f);
 
-					ImGui::DragFloat("Rot X", &cube->rotAxis.x);
-					ImGui::DragFloat("Rot Y", &cube->rotAxis.y);
-					ImGui::DragFloat("Rot Z", &cube->rotAxis.z);
+					ImGui::DragFloat("Rot X", &cube.second->rotAxis.x);
+					ImGui::DragFloat("Rot Y", &cube.second->rotAxis.y);
+					ImGui::DragFloat("Rot Z", &cube.second->rotAxis.z);
 
-					ImGui::DragFloat("X", &cube->trans.x, 0.01f);
-					ImGui::DragFloat("Y", &cube->trans.y, 0.01f);
-					ImGui::DragFloat("Z", &cube->trans.z, 0.01f);
+					ImGui::DragFloat("X", &cube.second->trans.x, 0.01f);
+					ImGui::DragFloat("Y", &cube.second->trans.y, 0.01f);
+					ImGui::DragFloat("Z", &cube.second->trans.z, 0.01f);
 
 					ImGui::TreePop();
 				}
@@ -353,8 +364,8 @@ public:
 		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if ( addCube ) cubes.push_back( std::make_shared<myCube>( new myCube() ) );
-		if ( clearCubes ) cubes.clear();
+		if ( addCube ) world->renderables["nn"] = std::make_shared<Renderable>( new Renderable( world->models["cube"] ));
+		if ( clearCubes ) world->renderables.clear();
 
 		return;
 	}
@@ -460,8 +471,8 @@ private:
 				break;
 
 				case SDL_MOUSEBUTTONDOWN:
-					for (auto &cube : cubes)
-						if ( cube->flags.isHovered )
+					for (auto &cube : world->renderables)
+						if ( cube.second->flags.isHovered )
 							flags.selectClosest = true;
 				break;
 				}
@@ -510,7 +521,7 @@ private:
 
 	std::chrono::_V2::steady_clock::time_point start;
 
-	std::vector<std::shared_ptr<myCube> > cubes;
+	std::shared_ptr<GLScene> world;
 
 	std::shared_ptr<Camera> camera;
 };

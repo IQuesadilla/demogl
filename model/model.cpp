@@ -1,13 +1,17 @@
 #include "model/model.h"
 
-Model::Model(std::string vertpath, std::string fragpath)
+Model::Model(std::shared_ptr<_shader> shader)
+{
+    ;
+}
+
+Model::Model( Model *_new)
 {
     ;
 }
 
 Model::~Model()
 {
-    shader.reset();
     glDeleteBuffers(1,&uvbuff);
     glDeleteBuffers(1,&vertbuff);
 }

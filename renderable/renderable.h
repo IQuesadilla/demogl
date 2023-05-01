@@ -20,15 +20,16 @@
 class Renderable
 {
 public:
-    Renderable(std::shared_ptr<Camera> camera);
+    Renderable(std::shared_ptr<Model> model);
+    Renderable( Renderable *_new );
     ~Renderable();
 
     void render(glm::mat4 projection, glm::mat4 view, float deltaTime);
+    float distance(glm::vec3 pos);
 
-private:
+//private:
     GLuint VAO;
     std::shared_ptr<Model> _model;
-    std::shared_ptr<Camera> _camera;
 
     struct {
 		bool isHovered;

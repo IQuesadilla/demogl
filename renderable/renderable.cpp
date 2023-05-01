@@ -1,6 +1,6 @@
 #include "renderable.h"
 
-Renderable::Renderable(std::shared_ptr<Camera> camera)
+Renderable::Renderable(std::shared_ptr<Model> model)
 {
     glGenVertexArrays(1,&VAO);
     glBindVertexArray(VAO);
@@ -14,7 +14,12 @@ Renderable::Renderable(std::shared_ptr<Camera> camera)
     flags.isSelected = false;
     flags.isClosest = false;
 
-    _camera = camera;
+    _model = model;
+}
+
+Renderable::Renderable( Renderable *_new )
+{
+    ;
 }
 
 Renderable::~Renderable()
@@ -59,7 +64,7 @@ void Renderable::render(glm::mat4 projection, glm::mat4 view, float deltaTime)
             glm::vec3(0.f,0.f,1.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
 
     //glm::vec3 lookingDirection = glm::vec3(cam->Front)
-    flags.isHovered = RaycastRotatedCube(glm::vec3(1.0f, 1.0f, 1.0f), model, _camera->Position, _camera->Front);
+    //flags.isHovered = RaycastRotatedCube(glm::vec3(1.0f, 1.0f, 1.0f), model, _camera->Position, _camera->Front);
 
     glBindVertexArray(VAO);
 
@@ -109,4 +114,9 @@ void Renderable::render(glm::mat4 projection, glm::mat4 view, float deltaTime)
     // Disable location 0 and location 1
     glDisableVertexArrayAttrib(VAO, 0);
     glDisableVertexArrayAttrib(VAO, 1);
+}
+
+float Renderable::distance(glm::vec3 pos)
+{
+    return glm::abs(glm::distance(pos,trans));
 }
