@@ -20,12 +20,17 @@
 class Model
 {
 public:
-    
-    Model(std::shared_ptr<_shader> shader);
     Model( Model *_new );
     ~Model();
 
+    void bind();
+
     std::shared_ptr<_shader> shader;
+    GLuint VAO;
+
+protected:
+    Model() {};
+    void setModel(std::vector<GLfloat> vertData, std::vector<GLfloat> uvData);
 
 private:
     GLuint vertbuff, uvbuff, texbuff;

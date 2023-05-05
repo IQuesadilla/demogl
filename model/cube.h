@@ -11,12 +11,6 @@
 #include <list>
 #include <chrono>
 
-#include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
-
-#include "assets/rawcube.h"
-
 #include "model/model.h"
 
 
@@ -24,7 +18,7 @@ class myCube : public Model
 {
 public:
     myCube();
-    myCube(myCube *temp);
+    myCube(myCube *_new);
     ~myCube();
 
 };

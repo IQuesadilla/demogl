@@ -21,7 +21,7 @@ bin/sdlgl: sdlgl.cpp shader.o camera.o
 bin/curve: curve.cpp shader.o camera.o origin.o
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -lGL
 
-bin/split: split.cpp scene.o model.o renderable.o shader.o camera.o
+bin/split: split.cpp scene.o model.o model_cube.o renderable.o shader.o camera.o origin.o
 	$(CXX) $(CFLAGS) $(INCLUDE) $(IMGUIINC) -o $@ $^ $(LIBS) -lGL
 
 scene.o: scene/scene.cpp scene/scene.h

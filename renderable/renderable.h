@@ -26,9 +26,11 @@ public:
 
     void render(glm::mat4 projection, glm::mat4 view, float deltaTime);
     float distance(glm::vec3 pos);
+    bool raycastAABB(glm::vec3 pos, glm::vec3 dir);
 
 //private:
-    GLuint VAO;
+    glm::mat4 genModelMatrix();
+
     std::shared_ptr<Model> _model;
 
     struct {

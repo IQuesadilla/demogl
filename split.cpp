@@ -129,9 +129,12 @@ public:
 		camera->BinarySensitivity = 2.0f;
 
 		world.reset( new GLScene() );
-		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
+		world->shaders["basic_textured"].reset( new _shader("assets/basic_colored.vert","assets/basic_colored.frag") );
 		world->models["cube"].reset( new myCube() );
 		world->models["cube"]->shader = world->shaders["basic_textured"];
+		world->renderables["cube_0"].reset( new Renderable( world->models["cube"] ) );
+
+		origin.reset( new Origin() );
 
 		glLineWidth(2.0f);
 
@@ -139,7 +142,7 @@ public:
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 
-		glEnable(GL_TEXTURE_2D);
+		//glEnable(GL_TEXTURE_2D);
 
 		clear_color = ImVec4(0.2f, 0.3f, 0.3f, 1.0f);
 
@@ -212,6 +215,7 @@ public:
 
 		for (auto &cube : world->renderables)
 		{
+			cube.second->flags.isHovered = cube.second->raycastAABB(camera->Position, camera->Front);
 			if (cube.second->flags.isHovered)
 			{
 				float dis = cube.second->distance(camera->Position);
@@ -258,6 +262,8 @@ public:
 			}
 		}
 
+		origin->render(projection, view, 1.f);
+
 		//glDepthMask( GL_FALSE );
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -300,10 +306,9 @@ public:
 
 			ImGui::Text("Cubes: %ld, Sorted: %ld", world->renderables.size(), sorted.size());
 
-			int i = 0;
 			for (auto &cube : world->renderables)
 			{
-				std::string name = std::to_string(i++);
+				std::string name = cube.first;
 				if ( cube.second->flags.isSelected && ImGui::TreeNode(name.c_str()) )
 				{
 					ImGui::SliderFloat("Alpha", &cube.second->alpha, 0.0f, 1.0f);
@@ -364,7 +369,7 @@ public:
 		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if ( addCube ) world->renderables["nn"] = std::make_shared<Renderable>( new Renderable( world->models["cube"] ));
+		if ( addCube ) world->renderables["cube_" + std::to_string(world->renderables.size())] = std::make_shared<Renderable>( new Renderable( world->models["cube"] ));
 		if ( clearCubes ) world->renderables.clear();
 
 		return;
@@ -522,7 +527,7 @@ private:
 	std::chrono::_V2::steady_clock::time_point start;
 
 	std::shared_ptr<GLScene> world;
-
+	std::unique_ptr<Origin> origin;
 	std::shared_ptr<Camera> camera;
 };
 
