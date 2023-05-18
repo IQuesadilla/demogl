@@ -11,4 +11,5 @@ git submodule update
 ./vcpkg/bootstrap-vcpkg.sh
 ./vcpkg/vcpkg install sdl2
 ./vcpkg/vcpkg install glm
+./vcpkg/vcpkg install "imgui[core,opengl3-binding,sdl2-binding]"
 ```
