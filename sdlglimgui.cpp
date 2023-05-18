@@ -214,8 +214,8 @@ public:
 		glDrawArrays(GL_TRIANGLES, 0, 12*3);
 
 		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(VAO, 0);
-		glDisableVertexArrayAttrib(VAO, 1);
+		//glDisableVertexArrayAttrib(VAO, 0);
+		//glDisableVertexArrayAttrib(VAO, 1);
 	}
 
 	float distance(glm::vec3 pos)
@@ -262,7 +262,7 @@ public:
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, AA_LEVEL);
 			glEnable(GL_MULTISAMPLE);
 		#endif
-
+/*
 		GLenum error = GL_NO_ERROR;
 
 		//Initialize Projection Matrix
@@ -288,7 +288,7 @@ public:
 			std::cout << "Error initializing OpenGL! " << error << std::endl;
 			return;
 		}
-
+*/
 		window = SDL_CreateWindow(	"gldemo", 					// Window Title
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global X Position
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global Y Position
@@ -509,8 +509,8 @@ public:
 		glDrawArrays(GL_LINES, 0, 6);
 
 		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(originVAO, 0);
-		glDisableVertexArrayAttrib(originVAO, 1);
+		//glDisableVertexArrayAttrib(originVAO, 0);
+		//glDisableVertexArrayAttrib(originVAO, 1);
 
 
 
@@ -767,7 +767,7 @@ private:
 
 	ImColor clear_color;
 
-	std::chrono::_V2::steady_clock::time_point start;
+	std::chrono::steady_clock::time_point start;
 
 	std::vector<std::shared_ptr<myCube> > cubes;
 

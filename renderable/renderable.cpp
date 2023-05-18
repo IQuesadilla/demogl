@@ -91,8 +91,8 @@ void Renderable::render(glm::mat4 projection, glm::mat4 view, float deltaTime)
     glDrawArrays(GL_TRIANGLES, 0, 12*3);
 
     // Disable location 0 and location 1
-    glDisableVertexArrayAttrib(_model->VAO, 0);
-    glDisableVertexArrayAttrib(_model->VAO, 1);
+    //glDisableVertexArrayAttrib(_model->VAO, 0);
+    //glDisableVertexArrayAttrib(_model->VAO, 1);
 }
 
 float Renderable::distance(glm::vec3 pos)

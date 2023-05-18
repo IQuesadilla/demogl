@@ -68,6 +68,6 @@ void Origin::render(glm::mat4 projection, glm::mat4 view, float scale)
     glDrawArrays(GL_LINES, 0, 6);
 
     // Disable location 0 and location 1
-    glDisableVertexArrayAttrib(VAO, 0);
+    //glDisableVertexArrayAttrib(VAO, 0);
     //glDisableVertexArrayAttrib(VAO, 1);
 }

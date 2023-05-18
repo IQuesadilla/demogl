@@ -27,6 +27,8 @@ public:
 		// Don't enable the main loop unless init succeeds
 		flags.doLoop = false;
 
+		std::cout << "Preparing to initialize SDL" << std::endl;
+
 		// Initialize Video and Events on SDL, no need to initialize any other subsystems
 		if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) < 0 )
 		{
@@ -34,10 +36,14 @@ public:
 			return;
 		}
 
+		std::cout << "Successfully launched SDL" << std::endl;
+
 		// Use OpenGL v3.3 core - GLSL: #version 330 core
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+		std::cout << "Successfully loaded OpenGL" << std::endl;
 
 		#if AA_LEVEL
 			// Enable Antialiasing
@@ -47,30 +53,6 @@ public:
 		#endif
 
 		GLenum error = GL_NO_ERROR;
-
-		//Initialize Projection Matrix
-		glMatrixMode( GL_PROJECTION );
-		glLoadIdentity();
-		
-		//Check for error
-		error = glGetError();
-		if( error != GL_NO_ERROR )
-		{
-			std::cout << "Error initializing OpenGL! " << error << std::endl;
-			return;
-		}
-
-		//Initialize Modelview Matrix
-		glMatrixMode( GL_MODELVIEW );
-		glLoadIdentity();
-
-		//Check for error
-		error = glGetError();
-		if( error != GL_NO_ERROR )
-		{
-			std::cout << "Error initializing OpenGL! " << error << std::endl;
-			return;
-		}
 
 		window = SDL_CreateWindow(	"gldemo", 					// Window Title
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global X Position
@@ -97,6 +79,8 @@ public:
 		// This should happen by default, but just to be sure, attach the glcontext to the window
 		SDL_GL_MakeCurrent(window, glcontext);
 
+		std::cout << "Successfully configured OpenGL" << std::endl;
+
 		// Load window icon and set if successfully loaded
 		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
 		if (icon == NULL)
@@ -121,7 +105,7 @@ public:
 		glDepthFunc(GL_LESS);
 
 		// Don't render faces that have a normal facing away from the viewport
-		//glEnable(GL_CULL_FACE);
+		glEnable(GL_CULL_FACE);
 
 		// Create a Vertex Array Object to represent the cube
 		glGenVertexArrays(1,&VAO);
@@ -244,8 +228,8 @@ public:
 		glDrawArrays(GL_TRIANGLES, 0, 12*3);
 
 		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(VAO, 0);
-		glDisableVertexArrayAttrib(VAO, 1);
+		//glDisableVertexArrayAttrib(VAO, 0);
+		//glDisableVertexArrayAttrib(VAO, 1);
 
 		model = glm::translate(model, glm::vec3(0.0f,10.0f,0.0f));
 
@@ -261,8 +245,8 @@ public:
 		glDrawArrays(GL_TRIANGLES, 0, 12*3);
 
 		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(VAO, 0);
-		glDisableVertexArrayAttrib(VAO, 1);
+		//glDisableVertexArrayAttrib(VAO, 0);
+		//glDisableVertexArrayAttrib(VAO, 1);
 
 		// Swap the internal framebuffer to the screen
 		SDL_GL_SwapWindow(window);
@@ -414,7 +398,8 @@ private:
 	GLuint vertbuff;
 	GLuint colorbuff;
 
-	std::chrono::_V2::steady_clock::time_point start;
+	//std::chrono::_V2::steady_clock::time_point start;
+	std::chrono::steady_clock::time_point start;
 
 	std::shared_ptr<Camera> camera;
 	_shader shader;

@@ -256,8 +256,8 @@ public:
 		glDrawArrays(GL_TRIANGLES, 0, 12*3);
 
 		// Disable location 0 and location 1
-		glDisableVertexArrayAttrib(VAO, 0);
-		glDisableVertexArrayAttrib(VAO, 1);
+		//glDisableVertexArrayAttrib(VAO, 0);
+		//glDisableVertexArrayAttrib(VAO, 1);
 	}
 
 	float distance(glm::vec3 pos)
@@ -304,32 +304,6 @@ public:
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, AA_LEVEL);
 			glEnable(GL_MULTISAMPLE);
 		#endif
-
-		GLenum error = GL_NO_ERROR;
-
-		//Initialize Projection Matrix
-		glMatrixMode( GL_PROJECTION );
-		glLoadIdentity();
-		
-		//Check for error
-		error = glGetError();
-		if( error != GL_NO_ERROR )
-		{
-			std::cout << "Error initializing OpenGL! " << error << std::endl;
-			return;
-		}
-
-		//Initialize Modelview Matrix
-		glMatrixMode( GL_MODELVIEW );
-		glLoadIdentity();
-
-		//Check for error
-		error = glGetError();
-		if( error != GL_NO_ERROR )
-		{
-			std::cout << "Error initializing OpenGL! " << error << std::endl;
-			return;
-		}
 
 		window = SDL_CreateWindow(	"gldemo", 					// Window Title
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global X Position
@@ -415,7 +389,7 @@ public:
 			std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
 			return;
 		}
-
+/*
 		cubes.resize(100*100);
 		for (int i = 0; i < 100*100; ++i)
 		{
@@ -423,7 +397,7 @@ public:
 			cubes[i]->trans.x = glm::floor(float(i)/100.0f)*2;
 			cubes[i]->trans.z = glm::floor(i%100)*2;
 		}
-
+*/
 		SDL_GL_SetSwapInterval(0);
 		SDL_ShowWindow(window);
 
@@ -787,7 +761,7 @@ private:
 
 	ImColor clear_color;
 
-	std::chrono::_V2::steady_clock::time_point start;
+	std::chrono::steady_clock::time_point start;
 
 	std::vector<std::shared_ptr<myCube> > cubes;
 

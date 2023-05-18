@@ -59,32 +59,6 @@ public:
 			glEnable(GL_MULTISAMPLE);
 		#endif
 
-		GLenum error = GL_NO_ERROR;
-
-		//Initialize Projection Matrix
-		glMatrixMode( GL_PROJECTION );
-		glLoadIdentity();
-		
-		//Check for error
-		error = glGetError();
-		if( error != GL_NO_ERROR )
-		{
-			std::cout << "Error initializing OpenGL! " << error << std::endl;
-			return;
-		}
-
-		//Initialize Modelview Matrix
-		glMatrixMode( GL_MODELVIEW );
-		glLoadIdentity();
-
-		//Check for error
-		error = glGetError();
-		if( error != GL_NO_ERROR )
-		{
-			std::cout << "Error initializing OpenGL! " << error << std::endl;
-			return;
-		}
-
 		window = SDL_CreateWindow(	"gldemo", 					// Window Title
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global X Position
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global Y Position
@@ -524,7 +498,7 @@ private:
 
 	ImColor clear_color;
 
-	std::chrono::_V2::steady_clock::time_point start;
+	std::chrono::steady_clock::time_point start;
 
 	std::shared_ptr<GLScene> world;
 	std::unique_ptr<Origin> origin;

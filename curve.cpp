@@ -46,7 +46,7 @@ public:
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, AA_LEVEL);
 			glEnable(GL_MULTISAMPLE);
 		#endif
-
+/*
 		GLenum error = GL_NO_ERROR;
 
 		//Initialize Projection Matrix
@@ -72,7 +72,7 @@ public:
 			std::cout << "Error initializing OpenGL! " << error << std::endl;
 			return;
 		}
-
+*/
 		window = SDL_CreateWindow(	"gldemo", 					// Window Title
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global X Position
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global Y Position
@@ -383,7 +383,7 @@ private:
 	GLuint vertbuff;
 	GLuint colorbuff;
 
-	std::chrono::_V2::steady_clock::time_point start;
+	std::chrono::steady_clock::time_point start;
 
 	std::shared_ptr<Origin> origin;
 
