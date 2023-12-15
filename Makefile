@@ -1,5 +1,5 @@
 CFLAGS = -Wall -std=c++17 -O3
-LIBS = $(wildcard ./vcpkg/installed/x64-osx/lib/*.a) -ldl -lpthread
+LIBS = -ldl -lpthread -lSDL2 -limgui -lfreetype -lpng -lbrotlidec-static -lbrotlicommon-static -lbz2 -lz
 
 ifeq ($(OS),Windows_NT)
 #    CCFLAGS += -D WIN32
@@ -42,6 +42,8 @@ INCLUDE = -I.
 INCLUDE += -I$(VCPKGDIR)/include/
 INCLUDE += -I$(VCPKGDIR)/include/SDL2/
 INCLUDE += -I$(VCPKGDIR)/include/glm/
+LIBS += -L$(VCPKGDIR)/lib/
+
 
 all: bin/sdlgl bin/sdlglimgui bin/sdlglimguitextured bin/curve bin/split
 
@@ -52,7 +54,7 @@ bin/sdlglimgui: sdlglimgui.cpp shader.o camera.o
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS)
 
 bin/sdlgl: sdlgl.cpp shader.o camera.o
-	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -framework CoreAudio -framework GameController -framework IOKit -framework AudioToolbox -framework CoreHaptics -framework CoreVideo -framework ForceFeedback -framework Metal -framework Foundation -framework Cocoa -framework CoreFoundation -framework OpenGL -liconv -framework CoreGraphics -framework Carbon
+	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) 
 
 bin/curve: curve.cpp shader.o camera.o origin.o
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS)

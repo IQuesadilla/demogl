@@ -26,6 +26,7 @@ public:
 
     void render(glm::mat4 projection, glm::mat4 view, float deltaTime);
     float distance(glm::vec3 pos);
+    void select();
     bool raycastAABB(glm::vec3 pos, glm::vec3 dir);
 
 //private:

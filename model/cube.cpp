@@ -2,7 +2,32 @@
 
 #include "assets/rawcube.h"
 
-bool RaycastRotatedCube(const glm::vec3& cubeExtents, const glm::mat4& cubeTransform, const glm::vec3& rayOrigin, const glm::vec3& rayDir)
+myCube::myCube() : Model()
+{
+    std::vector<GLfloat> vertDataVec;
+    vertDataVec.resize(sizeof(vertData) / sizeof(GLfloat));
+    memcpy(vertDataVec.data(),vertData,sizeof(vertData)); 
+
+    std::vector<GLfloat> uvDataVec;
+    uvDataVec.resize(sizeof(imgUV) / sizeof(GLfloat));
+    memcpy(uvDataVec.data(),imgUV,sizeof(imgUV));
+    //for (std::size_t i = 0; i < uvDataVec.size(); ++i)
+    //    uvDataVec[i] = 0.5f;
+
+    setModel(vertDataVec, uvDataVec);
+}
+
+myCube::myCube(myCube *_new)
+{
+    *this = *_new;
+}
+
+myCube::~myCube()
+{
+    ;
+}
+
+/*bool RaycastRotatedCube(const glm::vec3& cubeExtents, const glm::mat4& cubeTransform, const glm::vec3& rayOrigin, const glm::vec3& rayDir)
 {
     // Compute the inverse transformation matrix for the cube
     glm::mat4 inverseTransform = glm::inverse(cubeTransform);
@@ -41,27 +66,4 @@ bool RaycastRotatedCube(const glm::vec3& cubeExtents, const glm::mat4& cubeTrans
 
     // The ray intersects the cube
     return true;
-}
-
-myCube::myCube() : Model()
-{
-    std::vector<GLfloat> vertDataVec;
-    vertDataVec.resize(sizeof(vertData) / sizeof(GLfloat));
-    memcpy(vertDataVec.data(),vertData,sizeof(vertData));
-
-    std::vector<GLfloat> uvDataVec;
-    uvDataVec.resize(sizeof(colorData) / sizeof(GLfloat));
-    memcpy(uvDataVec.data(),colorData,sizeof(colorData));
-
-    setModel(vertDataVec, uvDataVec);
-}
-
-myCube::myCube(myCube *_new)
-{
-    *this = *_new;
-}
-
-myCube::~myCube()
-{
-    ;
-}
+}*/

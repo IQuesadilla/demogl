@@ -49,13 +49,13 @@ void Renderable::render(glm::mat4 projection, glm::mat4 view, float deltaTime)
 
     if ( !flags.isSelected )
     {
-        glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-        glDisable(GL_CULL_FACE);
+        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+        glEnable(GL_CULL_FACE);
     }
     else
     {
-        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-        glEnable(GL_CULL_FACE);
+        glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+        glDisable(GL_CULL_FACE);
     }
 
     //if ( flags.isHovered )
@@ -65,18 +65,20 @@ void Renderable::render(glm::mat4 projection, glm::mat4 view, float deltaTime)
 
     // Use shader "shader" and give it all 3 uniforms
     _model->shader->use();
-    _model->shader->setMat4("model", genModelMatrix() );				// GLSL: uniform mat4 model;
-    _model->shader->setMat4("view", view );				// GLSL: uniform mat4 view;
-    _model->shader->setMat4("projection" ,projection );	// GLSL: uniform mat4 projection;
+    _model->shader->setMat4("model", genModelMatrix() ); // GLSL: uniform mat4 model;
+    _model->shader->setMat4("view", view );				 // GLSL: uniform mat4 view;
+    _model->shader->setMat4("projection" ,projection );	 // GLSL: uniform mat4 projection;
 
     if (flags.isClosest)    _model->shader->setFloat("alpha",alpha/2);
     else                    _model->shader->setFloat("alpha",alpha);
 
     flags.isClosest = false;
 
+    _model->shader->setInt("myTextureSampler", 0);
+
     // Enable location 0 and location 1 in the shader
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
+    //glEnableVertexAttribArray(0);
+    //glEnableVertexAttribArray(1);
 
     //_model->shader->setInt("myTextureSampler", 0);
 
@@ -98,6 +100,11 @@ void Renderable::render(glm::mat4 projection, glm::mat4 view, float deltaTime)
 float Renderable::distance(glm::vec3 pos)
 {
     return glm::abs(glm::distance(pos,trans));
+}
+
+void Renderable::select()
+{
+    flags.isSelected = ! flags.isSelected;
 }
 
 bool Renderable::raycastAABB(glm::vec3 pos, glm::vec3 dir)

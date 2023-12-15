@@ -103,12 +103,12 @@ public:
 		camera->BinarySensitivity = 2.0f;
 
 		world.reset( new GLScene() );
-		world->shaders["basic_textured"].reset( new _shader("assets/basic_colored.vert","assets/basic_colored.frag") );
+		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
 		world->models["cube"].reset( new myCube() );
 		world->models["cube"]->shader = world->shaders["basic_textured"];
-		world->renderables["cube_0"].reset( new Renderable( world->models["cube"] ) );
 
 		origin.reset( new Origin() );
+		cursor.reset( new Origin() );
 
 		glLineWidth(2.0f);
 
@@ -116,7 +116,7 @@ public:
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 
-		//glEnable(GL_TEXTURE_2D);
+		glEnable(GL_TEXTURE_2D);
 
 		clear_color = ImVec4(0.2f, 0.3f, 0.3f, 1.0f);
 
@@ -135,6 +135,7 @@ public:
 		//font_cfg.RasterizerFlags |= ImGuiFreeType::ForceAutoHint;
 		ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/font.ttf",15,&font_cfg);
 		flags.showDemoMenu = false;
+		flags.showObjectManager = false;
 
 		start = std::chrono::steady_clock::now();
 
@@ -145,7 +146,6 @@ public:
 		SDL_GL_SetSwapInterval(0);
 		SDL_ShowWindow(window);
 
-		flags.selectClosest = false;
 		fontSize = 1.0f;
 
 		// If here, initialization succeeded and loop should be enabled
@@ -161,8 +161,10 @@ public:
 
 	void runOnce()
 	{
-		bool addCube = false;
-		bool clearCubes = false;
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+
 		// Check for any inputs from the user
 		pollInput();
 
@@ -183,73 +185,15 @@ public:
 		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		std::list<std::pair<std::shared_ptr<Renderable>, float> > sorted;
-		std::pair<std::shared_ptr<Renderable>, float> closestHovered
-			= std::make_pair(nullptr, 1000.0f);
-
-		for (auto &cube : world->renderables)
+		if (cursor->getColors())
 		{
-			cube.second->flags.isHovered = cube.second->raycastAABB(camera->Position, camera->Front);
-			if (cube.second->flags.isHovered)
-			{
-				float dis = cube.second->distance(camera->Position);
-				if ( dis < closestHovered.second )
-				{
-					closestHovered = std::make_pair(cube.second,dis);
-				}
-			}
+			cursor->render(projection, camera->GetRotViewMatrix(), 0.01f);
+		} else {
+			cursor->render(projection, glm::lookAt({1.0f,0.0f,0.0f},glm::vec3(0.0f),{0.0f,0.0f,1.0f}), 0.01f);
 		}
+		origin->render(projection, view, 0.5f);
 
-		if (closestHovered.second < 1000.0f)
-		{
-			closestHovered.first->flags.isClosest = true;
-
-			if ( flags.selectClosest )
-			{
-				closestHovered.first->flags.isSelected = ! closestHovered.first->flags.isSelected;
-				flags.selectClosest = false;
-			}
-		}
-
-		for (auto &cube : world->renderables)
-		{
-			if (cube.second->alpha == 1.0f && !cube.second->flags.isClosest)
-				cube.second->render(projection,view,deltaTime);
-			else
-			{
-				bool isInserted = false;
-				float dis = cube.second->distance(camera->Position);
-				for (auto it = sorted.begin(); it != sorted.end(); it++)
-				{
-					if ( dis > it->second )
-					{
-						sorted.insert( it, std::make_pair(cube.second,dis) );
-						isInserted = true;
-						break;
-					}
-				}
-
-				if ( !isInserted )
-				{
-					sorted.emplace_back(std::make_pair(cube.second,dis));
-				}
-			}
-		}
-
-		origin->render(projection, view, 1.f);
-
-		//glDepthMask( GL_FALSE );
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		for (auto &cube : sorted)
-		{
-			cube.first->render(projection,view,deltaTime);
-		}
-		glDisable(GL_BLEND);
-
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplSDL2_NewFrame();
-		ImGui::NewFrame();
+		world->Draw(deltaTime, camera);
 
 		if ( SDL_GetRelativeMouseMode() == SDL_FALSE )
 		{
@@ -267,43 +211,68 @@ public:
 				SDL_SetWindowFullscreen(window, isF ? 0 : myFFlag);
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("DemoMenu")) flags.showDemoMenu = !flags.showDemoMenu;
+			if (ImGui::Button("Demo Menu")) flags.showDemoMenu = !flags.showDemoMenu;
+			ImGui::SameLine();
+			if (ImGui::Button("Object Manager")) flags.showObjectManager = !flags.showObjectManager;
 			ImGui::SameLine();
 			if (ImGui::Button("Quit")) flags.doLoop = false;
-			if ( ImGui::Button("New Cube") ) addCube = true;
+
+			bool tempOriginColorState = origin->getColors();
+			if (ImGui::Checkbox("Origin Style", &tempOriginColorState)) origin->setColors(tempOriginColorState);
 			ImGui::SameLine();
-			if ( ImGui::Button("Clear Cubes") ) clearCubes = true;
+			bool tempCursorColorState = cursor->getColors();
+			if (ImGui::Checkbox("Cursor Style", &tempCursorColorState)) cursor->setColors(tempCursorColorState);
+
 			ImGui::ColorEdit3("Background Color", (float*)&clear_color); // Edit 3 floats representing a color
 			
 			ImGui::DragFloat("Font Size", &fontSize, 0.01f);
 			ImGui::SetWindowFontScale(fontSize);
 
-			ImGui::Text("Cubes: %ld, Sorted: %ld", world->renderables.size(), sorted.size());
-
-			for (auto &cube : world->renderables)
-			{
-				std::string name = cube.first;
-				if ( cube.second->flags.isSelected && ImGui::TreeNode(name.c_str()) )
-				{
-					ImGui::SliderFloat("Alpha", &cube.second->alpha, 0.0f, 1.0f);
-
-					ImGui::DragFloat("Spin X", &cube.second->spinAxis.x, 0.01f);
-					ImGui::DragFloat("Spin Y", &cube.second->spinAxis.y, 0.01f);
-					ImGui::DragFloat("Spin Z", &cube.second->spinAxis.z, 0.01f);
-
-					ImGui::DragFloat("Rot X", &cube.second->rotAxis.x);
-					ImGui::DragFloat("Rot Y", &cube.second->rotAxis.y);
-					ImGui::DragFloat("Rot Z", &cube.second->rotAxis.z);
-
-					ImGui::DragFloat("X", &cube.second->trans.x, 0.01f);
-					ImGui::DragFloat("Y", &cube.second->trans.y, 0.01f);
-					ImGui::DragFloat("Z", &cube.second->trans.z, 0.01f);
-
-					ImGui::TreePop();
-				}
-			}
-
 			ImGui::End();
+
+			if (flags.showObjectManager)
+			{
+				ImGui::Begin("Object Manager",&flags.showObjectManager, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+
+				for (auto &model : world->models)
+				{
+					int size = 0;
+					for (auto &cube : world->renderables)
+						size += cube.second->_model.get() == model.second.get();
+					ImGui::Text("%s: %d", model.first.c_str(), size);
+					ImGui::SameLine();
+					if ( ImGui::Button("New") ) world->renderables["cube_" + std::to_string(world->renderables.size())] = std::make_shared<Renderable>( new Renderable( world->models["cube"] ));
+					ImGui::SameLine();
+					if ( ImGui::Button("Clear") ) world->renderables.clear();
+				}
+
+				ImGui::Text("Objects: %ld", world->renderables.size());
+
+				for (auto &cube : world->renderables)
+				{
+					std::string name = cube.first;
+					if ( cube.second->flags.isSelected && ImGui::TreeNode(name.c_str()) )
+					{
+						ImGui::SliderFloat("Alpha", &cube.second->alpha, 0.0f, 1.0f);
+
+						ImGui::DragFloat("Spin X", &cube.second->spinAxis.x, 0.01f);
+						ImGui::DragFloat("Spin Y", &cube.second->spinAxis.y, 0.01f);
+						ImGui::DragFloat("Spin Z", &cube.second->spinAxis.z, 0.01f);
+
+						ImGui::DragFloat("Rot X", &cube.second->rotAxis.x);
+						ImGui::DragFloat("Rot Y", &cube.second->rotAxis.y);
+						ImGui::DragFloat("Rot Z", &cube.second->rotAxis.z);
+
+						ImGui::DragFloat("X", &cube.second->trans.x, 0.01f);
+						ImGui::DragFloat("Y", &cube.second->trans.y, 0.01f);
+						ImGui::DragFloat("Z", &cube.second->trans.z, 0.01f);
+
+						ImGui::TreePop();
+					}
+				}
+
+				ImGui::End();
+			}
 		}
 
 		ImGui::Begin("Overlay",(bool*)__null,	ImGuiWindowFlags_NoDecoration |
@@ -322,16 +291,6 @@ public:
 		ImGui::Text("Yaw: %.3f, Pitch: %.3f", camera->Yaw, camera->Pitch);
 		ImGui::Text("Zoom: %.3f", camera->Zoom);
 
-		std::string crosshair = "   |   \n"\
-								"---+---\n"\
-								"   |   ";
-		auto windowSize = ImGui::GetWindowSize();
-		auto textSize   = ImGui::CalcTextSize(crosshair.c_str());
-
-		ImGui::SetCursorPosX((windowSize.x - textSize.x) * 0.5f);
-		ImGui::SetCursorPosY((windowSize.y - textSize.y) * 0.5f);
-		ImGui::Text(crosshair.c_str());
-
 		ImGui::End();
 
 		ImGui::Render();
@@ -342,9 +301,6 @@ public:
 
 		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		if ( addCube ) world->renderables["cube_" + std::to_string(world->renderables.size())] = std::make_shared<Renderable>( new Renderable( world->models["cube"] ));
-		if ( clearCubes ) world->renderables.clear();
 
 		return;
 	}
@@ -452,7 +408,7 @@ private:
 				case SDL_MOUSEBUTTONDOWN:
 					for (auto &cube : world->renderables)
 						if ( cube.second->flags.isHovered )
-							flags.selectClosest = true;
+							world->selectClosest = true;
 				break;
 				}
 			}
@@ -487,7 +443,7 @@ private:
 	struct {
 		bool doLoop;
 		bool showDemoMenu;
-		bool selectClosest;
+		bool showObjectManager;
 	} flags;
 
 	int errorval;
@@ -502,6 +458,7 @@ private:
 
 	std::shared_ptr<GLScene> world;
 	std::unique_ptr<Origin> origin;
+	std::unique_ptr<Origin> cursor;
 	std::shared_ptr<Camera> camera;
 };
 

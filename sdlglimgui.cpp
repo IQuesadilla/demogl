@@ -14,9 +14,17 @@
 #include <glm.hpp>
 #include <gtx/quaternion.hpp>
 
+//#define STB_TRUETYPE_IMPLEMENTATION
+//#define STB_RECT_PACK_IMPLEMENTATION
+
+//#include <stb_truetype.h>
+
+//#include <stb_rect_pack.h>
+
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
+#include "imgui_freetype.h"
 
 #include "assets/rawcube.h"
 

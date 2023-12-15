@@ -5,7 +5,6 @@ void Model::setModel(std::vector<GLfloat> vertData, std::vector<GLfloat> uvData)
     glGenVertexArrays(1,&VAO);
     glBindVertexArray(VAO);
 
-/*
     SDL_Surface *icon = SDL_LoadBMP("assets/uvtemplate.bmp");
     if (icon == NULL)
     {
@@ -39,7 +38,7 @@ void Model::setModel(std::vector<GLfloat> vertData, std::vector<GLfloat> uvData)
     SDL_FreeSurface(icon);
 
     glGenerateMipmap(GL_TEXTURE_2D);
-*/
+
     // Generate a Vertex Buffer Object to represent the cube's vertices
     glGenBuffers(1,&vertbuff);
     glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
@@ -65,15 +64,18 @@ void Model::setModel(std::vector<GLfloat> vertData, std::vector<GLfloat> uvData)
     glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
     glVertexAttribPointer(
         1,                  // location
-        3,                  // size (per vertex)
+        2,                  // size (per vertex)
         GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
         GL_FALSE,           // is normalized*
         0,                  // stride**
         (void*)0            // array buffer offset
     );
 
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, texbuff);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texbuff);
 }
 
 Model::Model( Model *_new)
