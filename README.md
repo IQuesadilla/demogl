@@ -13,3 +13,4 @@ git submodule update
 ./vcpkg/vcpkg install glm
 ./vcpkg/vcpkg install "imgui[core,opengl3-binding,sdl2-binding,freetype]"
 ```
+vcpkg may fail if pkg-config is not installed.
