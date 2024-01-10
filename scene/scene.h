@@ -2,28 +2,54 @@
 #define SCENE_H
 #pragma once
 
+#ifndef GL_GLEXT_PROTOTYPES
+#define GL_GLEXT_PROTOTYPES 1
+#endif
+#include <SDL_opengl.h>
+
 #include <map>
 #include <memory>
+#include <vector>
 #include <string>
-#include "shader/shader.h"
+#include <utility>
+#include "shader.h"
 #include "model/model.h"
 #include "renderable/renderable.h"
-#include "camera/camera.h"
+#include "camera.h"
 
 class GLScene
 {
 public:
     GLScene();
-    ~GLScene();
+    virtual ~GLScene();
 
     void Draw(float deltaTime, std::shared_ptr<Camera> camera);
 
+    void UpdateSkybox(cv::Mat skybox);
+
+    void ImportScene(GLScene *scene);
+    std::pair<
+        std::vector<std::shared_ptr<Renderable>>*,
+        std::vector<std::shared_ptr<Renderable>>::iterator>
+        FindSiblingVectorOfChild(std::shared_ptr<Renderable> child);
+    bool CheckCascadingChild(std::shared_ptr<Renderable> parent, std::shared_ptr<Renderable> child);
+
+    void DebugSelectRenderable(std::shared_ptr<Renderable> renderable);
+    void DebugDrawAABB(std::shared_ptr<Renderable> renderable, glm::mat4 view_projection, glm::vec3 CameraPos);
+
 //private:
-    std::map<std::string, std::shared_ptr<Renderable> > renderables;
+    std::map< std::shared_ptr<Renderable>, std::vector<std::shared_ptr<Renderable>> > renderables;
     std::map<std::string, std::shared_ptr<Model> > models;
     std::map<std::string, std::shared_ptr<_shader> > shaders;
 
-    bool selectClosest;
+    std::vector<std::shared_ptr<Renderable>> SceneBase;
+    _shader SkyboxShader;
+    std::shared_ptr<_shader> AABBShader;
+    GLuint SkyboxTexID, SkyboxVAO, SkyboxVBO;
+    GLuint AABBVAO, AABBVBO[2];
+    bool selectClosest, itemWasToggledOpen;
+
+    AssetData Info;
 };
 
 #endif

@@ -14,10 +14,9 @@
 #include "model/model.h"
 
 
-class myCube : public Model
+class Blank : public Model
 {
 public:
-    myCube();
-    myCube(myCube *_new);
-
+    Blank();
+    Blank(Blank *_new);
 };

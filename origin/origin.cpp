@@ -67,8 +67,8 @@ Origin::Origin()
 Origin::~Origin()
 {
     // Disable location 0 and location 1
-    glDisableVertexArrayAttrib(VAO, 0);
-    glDisableVertexArrayAttrib(VAO, 1);
+    //glDisableVertexArrayAttrib(VAO, 0);
+    //glDisableVertexArrayAttrib(VAO, 1);
 }
 
 void Origin::setColors(bool enable)

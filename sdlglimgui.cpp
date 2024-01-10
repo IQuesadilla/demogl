@@ -2,8 +2,8 @@
 
 #include "SDL.h"
 #include <SDL_opengl.h>
-#include "shader/shader.h"
-#include "camera/camera.h"
+#include "shader.h"
+#include "camera.h"
 #include <iostream>
 #include <memory>
 #include <vector>

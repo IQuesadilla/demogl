@@ -2,7 +2,7 @@
 #define ORIGIN_H
 #pragma once
 
-#include "shader/shader.h"
+#include "shader.h"
 #include <memory>
 
 class Origin

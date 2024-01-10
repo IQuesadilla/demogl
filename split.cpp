@@ -2,14 +2,17 @@
 
 #include "SDL.h"
 #include <SDL_opengl.h>
-#include "shader/shader.h"
-#include "camera/camera.h"
+#include "shader.h"
+#include "camera.h"
 #include <iostream>
 #include <memory>
 #include <vector>
 #include <map>
 #include <list>
+#include <stack>
+#include <array>
 #include <chrono>
+#include <numeric>
 
 #include <glm.hpp>
 #include <gtx/quaternion.hpp>
@@ -17,20 +20,24 @@
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
+#include "scene/imfilebrowser.h"
 
 #include "scene/scene.h"
+#include "scene/collada.h"
 #include "renderable/renderable.h"
 #include "origin/origin.h"
 #include "model/model.h"
 #include "model/cube.h"
+#include "model/window.h"
+#include "model/blank.h"
 
 #include "assets/rawcube.h"
 
 #define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
-#define AA_LEVEL 0
-#define WWIDTH 640
-#define WHEIGHT 480
+#define AA_LEVEL 8
+#define WWIDTH 1280
+#define WHEIGHT 720
 
 class gldemo
 {
@@ -39,6 +46,8 @@ public:
 	{
 		// Don't enable the main loop unless init succeeds
 		flags.doLoop = false;
+
+		start = std::chrono::steady_clock::now();
 
 		// Initialize Video and Events on SDL, no need to initialize any other subsystems
 		if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) < 0 )
@@ -56,8 +65,8 @@ public:
 			// Enable 8x Antialiasing
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, AA_LEVEL);
-			glEnable(GL_MULTISAMPLE);
 		#endif
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
 		window = SDL_CreateWindow(	"gldemo", 					// Window Title
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global X Position
@@ -83,6 +92,10 @@ public:
 
 		SDL_GL_MakeCurrent(window, glcontext);
 
+		#if AA_LEVEL
+			glEnable(GL_MULTISAMPLE);
+		#endif
+
 		// Load window icon and set if successfully loaded
 		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
 		if (icon == NULL)
@@ -102,25 +115,30 @@ public:
 		camera->MovementSpeed = 0.01f;
 		camera->BinarySensitivity = 2.0f;
 
-		world.reset( new GLScene() );
-		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
-		world->models["cube"].reset( new myCube() );
-		world->models["cube"]->shader = world->shaders["basic_textured"];
-
-		origin.reset( new Origin() );
-		cursor.reset( new Origin() );
-
-		glLineWidth(2.0f);
-
 		// Enable depth test - makes things in front appear in front
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 
-		glEnable(GL_TEXTURE_2D);
+		world.reset( new COLLADAScene("assets/cube.dae") );
+		//((COLLADAScene*)world.get())->parse();
+		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
+		world->models["blank"].reset( new Blank() );
+		world->models["cube"].reset( new myCube() );
+		world->models["cube"]->shader = world->shaders["basic_textured"];
+		world->models["window"].reset( new Window() );
+		world->models["window"]->shader = world->shaders["basic_textured"];
+
+		/*for (auto &model : world->models)
+			if (model.second->shader == nullptr)
+			{
+				std::cout << "Set default shader for \"" << model.first << '"' << std::endl;
+				model.second->shader.reset(&world->AABBShader);
+			}*/
+
+		origin.reset( new Origin() );
+		cursor.reset( new Origin() );
 
 		clear_color = ImVec4(0.2f, 0.3f, 0.3f, 1.0f);
-
-		//cubes.push_back(std::make_shared<myCube>(new myCube()));
 
 		IMGUI_CHECKVERSION();
     	ImGui::CreateContext();
@@ -130,23 +148,44 @@ public:
 		ImGui_ImplSDL2_InitForOpenGL(window, glcontext);
     	ImGui_ImplOpenGL3_Init("#version 330 core");
 		ImFontConfig font_cfg;
-		font_cfg.OversampleH = 3;
-		font_cfg.OversampleV = 3;
+		font_cfg.OversampleH = 2;
+		font_cfg.OversampleV = 2;
 		//font_cfg.RasterizerFlags |= ImGuiFreeType::ForceAutoHint;
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/font.ttf",15,&font_cfg);
+		font.reset(ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/font.ttf",15,&font_cfg));
 		flags.showDemoMenu = false;
 		flags.showObjectManager = false;
-
-		start = std::chrono::steady_clock::now();
 
 		#if FullOnStart
 			SDL_SetWindowFullscreen(window, myFFlag);
 		#endif
 
-		SDL_GL_SetSwapInterval(0);
-		SDL_ShowWindow(window);
+		GLenum err = glGetError();
+        if (err != GL_NO_ERROR) {
+            std::cout << "INIT Error:" << err << std::endl;
+        }
+
+		GLfloat range[2] = {0.0f,0.0f};
+		glGetFloatv(GL_LINE_WIDTH_RANGE, range);
+		std::cout << "Line Width: " << range[0] << ", " << range[1] << std::endl;
+		glGetFloatv(GL_POINT_SIZE_RANGE, range);
+		std::cout << "Point Size: " << range[0] << ", " << range[1] << std::endl;
+
+		int depthBufferSize;
+		SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &depthBufferSize);
+		std::cout << "Allocated Depth Buffer Size: " << depthBufferSize << std::endl;
 
 		fontSize = 1.0f;
+
+		for (auto &x : fps_array)
+			x = 1.0f;
+		fps_array_it = fps_array.begin();
+
+		if (SDL_GL_SetSwapInterval(-1) < 0)
+			SDL_GL_SetSwapInterval(1);
+		SDL_ShowWindow(window);
+
+		std::cout << "Setup Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() << "mS" << std::endl;
+		start = std::chrono::steady_clock::now();
 
 		// If here, initialization succeeded and loop should be enabled
 		flags.doLoop = true;
@@ -176,7 +215,8 @@ public:
 		camera->InputUpdate(deltaTime);
 
 		// Projection and view are the same per model because they are affected by the camera
-		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,100.0f);
+		//glMatrixMode(GL_PROJECTION);
+		glm::mat4 projection = camera->GetProjectionMatrix(0.5f,86.7f);
 		glm::mat4 view = camera->GetViewMatrix();
 
 		glDepthMask( GL_TRUE );
@@ -193,87 +233,59 @@ public:
 		}
 		origin->render(projection, view, 0.5f);
 
-		world->Draw(deltaTime, camera);
+		std::vector<std::string> KeysToDestory;
 
-		if ( SDL_GetRelativeMouseMode() == SDL_FALSE )
+		if ( flags.showDemoMenu )
+			ImGui::ShowDemoWindow(&flags.showDemoMenu);
+
+		ImGui::Begin("Menu",(bool*)__null,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);// Create a window called "Hello, world!" and append into it.
+
+		ImGui::Text("Press ESCAPE to toggle menu");               // Display some text (you can use a format strings too)
+
+		if (ImGui::Button("Fullscreen"))
 		{
-			if ( flags.showDemoMenu )
-				ImGui::ShowDemoWindow(&flags.showDemoMenu);
+			// Check if my fullscreen flag is set, set it to opposite
+			bool isF = SDL_GetWindowFlags(window) & myFFlag;
+			SDL_SetWindowFullscreen(window, isF ? 0 : myFFlag);
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Demo Menu")) flags.showDemoMenu = !flags.showDemoMenu;
+		ImGui::SameLine();
+		if (ImGui::Button("New")) flags.showObjectManager = !flags.showObjectManager;
+		ImGui::SameLine();
+		if (ImGui::Button("Quit")) flags.doLoop = false;
 
-			ImGui::Begin("Menu",(bool*)__null,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);// Create a window called "Hello, world!" and append into it.
+		bool tempOriginColorState = origin->getColors();
+		if (ImGui::Checkbox("Origin", &tempOriginColorState)) origin->setColors(tempOriginColorState);
+		ImGui::SameLine();
+		bool tempCursorColorState = cursor->getColors();
+		if (ImGui::Checkbox("Cursor", &tempCursorColorState)) cursor->setColors(tempCursorColorState);
+		ImGui::SameLine();
 
-			ImGui::Text("Press ESCAPE to toggle menu");               // Display some text (you can use a format strings too)
-
-			if (ImGui::Button("Fullscreen"))
+		bool vsync_check = (SDL_GL_GetSwapInterval() != 0);
+		if (ImGui::Checkbox("VSync",&vsync_check))
+		{
+			if (!vsync_check)
 			{
-				// Check if my fullscreen flag is set, set it to opposite
-				bool isF = SDL_GetWindowFlags(window) & myFFlag;
-				SDL_SetWindowFullscreen(window, isF ? 0 : myFFlag);
+				SDL_GL_SetSwapInterval(0);
 			}
-			ImGui::SameLine();
-			if (ImGui::Button("Demo Menu")) flags.showDemoMenu = !flags.showDemoMenu;
-			ImGui::SameLine();
-			if (ImGui::Button("Object Manager")) flags.showObjectManager = !flags.showObjectManager;
-			ImGui::SameLine();
-			if (ImGui::Button("Quit")) flags.doLoop = false;
-
-			bool tempOriginColorState = origin->getColors();
-			if (ImGui::Checkbox("Origin Style", &tempOriginColorState)) origin->setColors(tempOriginColorState);
-			ImGui::SameLine();
-			bool tempCursorColorState = cursor->getColors();
-			if (ImGui::Checkbox("Cursor Style", &tempCursorColorState)) cursor->setColors(tempCursorColorState);
-
-			ImGui::ColorEdit3("Background Color", (float*)&clear_color); // Edit 3 floats representing a color
-			
-			ImGui::DragFloat("Font Size", &fontSize, 0.01f);
-			ImGui::SetWindowFontScale(fontSize);
-
-			ImGui::End();
-
-			if (flags.showObjectManager)
+			else
 			{
-				ImGui::Begin("Object Manager",&flags.showObjectManager, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
-
-				for (auto &model : world->models)
-				{
-					int size = 0;
-					for (auto &cube : world->renderables)
-						size += cube.second->_model.get() == model.second.get();
-					ImGui::Text("%s: %d", model.first.c_str(), size);
-					ImGui::SameLine();
-					if ( ImGui::Button("New") ) world->renderables["cube_" + std::to_string(world->renderables.size())] = std::make_shared<Renderable>( new Renderable( world->models["cube"] ));
-					ImGui::SameLine();
-					if ( ImGui::Button("Clear") ) world->renderables.clear();
-				}
-
-				ImGui::Text("Objects: %ld", world->renderables.size());
-
-				for (auto &cube : world->renderables)
-				{
-					std::string name = cube.first;
-					if ( cube.second->flags.isSelected && ImGui::TreeNode(name.c_str()) )
-					{
-						ImGui::SliderFloat("Alpha", &cube.second->alpha, 0.0f, 1.0f);
-
-						ImGui::DragFloat("Spin X", &cube.second->spinAxis.x, 0.01f);
-						ImGui::DragFloat("Spin Y", &cube.second->spinAxis.y, 0.01f);
-						ImGui::DragFloat("Spin Z", &cube.second->spinAxis.z, 0.01f);
-
-						ImGui::DragFloat("Rot X", &cube.second->rotAxis.x);
-						ImGui::DragFloat("Rot Y", &cube.second->rotAxis.y);
-						ImGui::DragFloat("Rot Z", &cube.second->rotAxis.z);
-
-						ImGui::DragFloat("X", &cube.second->trans.x, 0.01f);
-						ImGui::DragFloat("Y", &cube.second->trans.y, 0.01f);
-						ImGui::DragFloat("Z", &cube.second->trans.z, 0.01f);
-
-						ImGui::TreePop();
-					}
-				}
-
-				ImGui::End();
+				if (SDL_GL_SetSwapInterval(-1) < 0)
+					SDL_GL_SetSwapInterval(1);
 			}
 		}
+
+		//ImGui::ColorEdit3("Background Color", (float*)&clear_color); // Edit 3 floats representing a color
+		
+		ImGui::DragFloat("Font Size", &fontSize, 0.01f);
+		ImGui::SetWindowFontScale(fontSize);
+		//ImGui::GetIO().Fonts->
+		//font->
+
+		world->Draw(deltaTime, camera);
+
+		ImGui::End();
 
 		ImGui::Begin("Overlay",(bool*)__null,	ImGuiWindowFlags_NoDecoration |
 												ImGuiWindowFlags_NoBackground |
@@ -285,22 +297,61 @@ public:
 
 		ImGui::SetWindowSize( ImGui::GetIO().DisplaySize );
 
-		ImGui::Text("FPS: %.3f", 1000.0f/deltaTime);
+		*fps_array_it = 1000.0f/deltaTime;
+		++fps_array_it;
+		if (fps_array_it == fps_array.end())
+			fps_array_it = fps_array.begin();
+
+		if (fps_count > int(current_fps / 4))
+		{
+			current_fps = std::accumulate(fps_array.begin(),fps_array.end(),1.0f) / fps_array.size();
+			fps_count = 0;
+		}
+		else ++fps_count;
+
+		ImGui::Text("FPS: %.3f", current_fps);
 		ImGui::Text("Camera: %.3f,%.3f,%.3f", camera->Position.x, camera->Position.y, camera->Position.z);
 		ImGui::Text("Camera Direction: %.3f,%.3f,%.3f", camera->Front.x, camera->Front.y, camera->Front.z);
 		ImGui::Text("Yaw: %.3f, Pitch: %.3f", camera->Yaw, camera->Pitch);
 		ImGui::Text("Zoom: %.3f", camera->Zoom);
 
+		for (auto &cube : world->renderables)
+			if (cube.first->flags.isHovered)
+			{
+				ImGui::Text("Looking at: %p", cube.first.get());
+				ImGui::Text("Is Selected: %s", cube.first->flags.isSelected ? "true" : "false" );
+			}
+
 		ImGui::End();
 
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		if ( SDL_GetRelativeMouseMode() == SDL_FALSE )
+		{
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		}
 
 		// Swap the internal framebuffer to the screen
 		SDL_GL_SwapWindow(window);
 
-		glClearColor(clear_color.Value.x,clear_color.Value.y,clear_color.Value.z,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		std::vector<std::shared_ptr<Renderable> > toD;
+		for (auto node = world->renderables.begin(); node != world->renderables.end(); ++node)
+			if (node->first->flags.QueueDestruction)
+			{
+				toD.push_back(node->first);
+			}
+
+		for (auto &node : toD)
+		{
+			auto pnode = world->FindSiblingVectorOfChild(node);
+
+			pnode.first->erase(pnode.second);
+
+			auto &obj = world->renderables[node];
+			if (obj.size() > 0)
+				pnode.first->insert(pnode.first->end(),obj.begin(),obj.end());
+
+			world->renderables.erase(node);
+		}
 
 		return;
 	}
@@ -406,8 +457,8 @@ private:
 				break;
 
 				case SDL_MOUSEBUTTONDOWN:
-					for (auto &cube : world->renderables)
-						if ( cube.second->flags.isHovered )
+					//for (auto &cube : world->renderables)
+						//if ( cube.second->flags.isClosest )
 							world->selectClosest = true;
 				break;
 				}
@@ -446,7 +497,6 @@ private:
 		bool showObjectManager;
 	} flags;
 
-	int errorval;
 	SDL_Window *window;
 	SDL_GLContext glcontext;
 
@@ -455,6 +505,12 @@ private:
 	ImColor clear_color;
 
 	std::chrono::steady_clock::time_point start;
+
+	std::shared_ptr<ImFont> font;
+	std::array<float, 60UL> fps_array;
+	std::array<float, 60UL>::iterator fps_array_it;
+	float current_fps;
+	int fps_count;
 
 	std::shared_ptr<GLScene> world;
 	std::unique_ptr<Origin> origin;
