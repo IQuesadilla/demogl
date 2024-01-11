@@ -8,19 +8,12 @@ project(YourProjectName)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3")
 
-# Platform-specific settings
-if(WIN32) # Set Windows specific flags
-elseif(APPLE) # Set macOS specific flags
-    link_libraries("-framework CoreAudio -framework GameController -framework IOKit -framework AudioToolbox -framework CoreHaptics -framework CoreVideo -framework ForceFeedback -framework Metal -framework Foundation -framework Cocoa -framework CoreFoundation -framework OpenGL -liconv -framework CoreGraphics -framework Carbon")
-elseif(UNIX AND NOT APPLE) # Set Linux specific flags
-    link_libraries("-lGL")
-endif()
-
 # Find required packages
 find_package(SDL2 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
+find_package(OpenGL REQUIRED)
 
 # Include directories
 include_directories(.)
@@ -51,6 +44,7 @@ add_library(glscene OBJECT
 add_executable(split split.cpp)
 target_link_libraries(split
     PRIVATE
+    OpenGL::GL
     imgui::imgui
     $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
     $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
