@@ -13,4 +13,7 @@ git submodule update
 ./vcpkg/vcpkg install glm
 ./vcpkg/vcpkg install "imgui[core,opengl3-binding,sdl2-binding,freetype]"
 ```
-vcpkg may fail if pkg-config is not installed.
+
+## Every way something has failed
+- vcpkg may fail if pkg-config is not installed
+- sdl2 install once failed with libsystemd error because of missing package python3-jinja2
