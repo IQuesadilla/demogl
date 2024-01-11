@@ -1,5 +1,3 @@
-
-
 #include "origin.h"
 #include <gtx/quaternion.hpp>
 

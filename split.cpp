@@ -138,7 +138,7 @@ public:
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 
-		world.reset( new GLScene() );//COLLADAScene("assets/cube.dae") );
+		world.reset( new GLScene()); //*/COLLADAScene("assets/cube.dae") );
 		//((COLLADAScene*)world.get())->parse();
 		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
 		world->models["blank"].reset( new Blank() );

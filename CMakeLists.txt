@@ -14,8 +14,6 @@ find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(GLEW REQUIRED)
-#find_package(glad CONFIG REQUIRED)
 
 include_directories(.)
 include_directories(${CMAKE_BINARY_DIR}/../vcpkg/installed/${VCPKG_TARGET_TRIPLET}/include)
@@ -45,7 +43,6 @@ add_library(glscene OBJECT
 add_executable(split split.cpp ./glad/glad.c)
 target_link_libraries(split
     ${OPENGL_LIBRARIES}
-    ${GLEW_LIBRARIES}
     ${CMAKE_DL_LIBS}
     imgui::imgui
     $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
