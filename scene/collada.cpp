@@ -19,7 +19,7 @@ COLLADAScene::COLLADAScene(std::string path) : GLScene(), basicxml()
     }
 }
 
-int COLLADAScene::loadcallback(char *buffer, size_t buffsize)
+int COLLADAScene::loadcallback(char *buffer, int buffsize)
 {
     ifs.read(buffer, buffsize);
     int s = ifs.gcount();

@@ -5,7 +5,13 @@
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES 1
 #endif
-#include <SDL_opengl.h>
+#if defined __has_include
+    #if __has_include (<SDL_opengl.h>)
+        #include <SDL_opengl.h>
+    #else
+        #include <GL/gl.h>
+    #endif
+#endif
 
 #include <map>
 #include <memory>

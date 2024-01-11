@@ -1,5 +1,5 @@
 #pragma once
-#include "../libQ/include/xml.h"
+#include "libQ/include/xml.h"
 #include "scene.h"
 
 #include <stack>
@@ -9,7 +9,7 @@ class COLLADAScene : public GLScene, public basicxml
 public:
     COLLADAScene(std::string path);
 
-    int loadcallback(char *buffer, size_t buffsize);
+    int loadcallback(char *buffer, int buffsize);
     void parsecallback(element e);
 
     std::ifstream ifs;

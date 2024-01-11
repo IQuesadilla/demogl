@@ -1,7 +1,13 @@
 #define GL_GLEXT_PROTOTYPES 1
 
 #include "SDL.h"
-#include <SDL_opengl.h>
+#if defined __has_include
+    #if __has_include (<SDL_opengl.h>)
+        #include <SDL_opengl.h>
+    #else
+        #include <GL/gl.h>
+    #endif
+#endif
 #include "shader.h"
 #include "camera.h"
 #include <iostream>
