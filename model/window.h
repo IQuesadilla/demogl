@@ -1,5 +1,5 @@
-#define GL_GLEXT_PROTOTYPES 1
 
+#include "glad/glad.h"
 #include "SDL.h"
 #include <SDL_opengl.h>
 #include "shader.h"

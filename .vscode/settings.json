@@ -92,6 +92,7 @@
         "*.inc": "cpp",
         "forward_list": "cpp",
         "valarray": "cpp",
-        "csignal": "cpp"
+        "csignal": "cpp",
+        "glad.h": "c"
     }
 }

@@ -2,9 +2,7 @@
 #define SCENE_H
 #pragma once
 
-#ifndef GL_GLEXT_PROTOTYPES
-#define GL_GLEXT_PROTOTYPES 1
-#endif
+#include "glad/glad.h"
 #if defined __has_include
     #if __has_include (<SDL_opengl.h>)
         #include <SDL_opengl.h>

@@ -2,10 +2,7 @@
 #define MODEL_H
 #pragma once
 
-#ifndef GL_GLEXT_PROTOTYPES
-#define GL_GLEXT_PROTOTYPES 1
-#endif
-
+#include "glad/glad.h"
 //#include "model/model.h"
 #include "shader.h"
 

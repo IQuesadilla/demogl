@@ -1,5 +1,6 @@
-#define GL_GLEXT_PROTOTYPES 1
-
+#define SDL_MAIN_HANDLED
+#include "glad/glad.h"
+#include "glad/khrplatform.h"
 #include "SDL.h"
 #if defined __has_include
     #if __has_include (<SDL_opengl.h>)
@@ -53,6 +54,8 @@ public:
 		// Don't enable the main loop unless init succeeds
 		flags.doLoop = false;
 
+		SDL_SetMainReady();
+
 		start = std::chrono::steady_clock::now();
 
 		// Initialize Video and Events on SDL, no need to initialize any other subsystems
@@ -96,7 +99,17 @@ public:
 			return;
 		}
 
+		/*glewExperimental = true;
+		if (glewInit() != GLEW_OK)*/
+
 		SDL_GL_MakeCurrent(window, glcontext);
+
+		if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+		{
+			printf( "Failed loading glad" );
+			return;
+		}
+        else std::cout << "Successfully loaded GLAD" << std::endl;
 
 		#if AA_LEVEL
 			glEnable(GL_MULTISAMPLE);
@@ -125,7 +138,7 @@ public:
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 
-		world.reset( new COLLADAScene("assets/cube.dae") );
+		world.reset( new GLScene() );//COLLADAScene("assets/cube.dae") );
 		//((COLLADAScene*)world.get())->parse();
 		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
 		world->models["blank"].reset( new Blank() );
@@ -244,7 +257,7 @@ public:
 		if ( flags.showDemoMenu )
 			ImGui::ShowDemoWindow(&flags.showDemoMenu);
 
-		ImGui::Begin("Menu",(bool*)__null,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);// Create a window called "Hello, world!" and append into it.
+		ImGui::Begin("Menu",(bool*)0,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);// Create a window called "Hello, world!" and append into it.
 
 		ImGui::Text("Press ESCAPE to toggle menu");               // Display some text (you can use a format strings too)
 
@@ -293,7 +306,7 @@ public:
 
 		ImGui::End();
 
-		ImGui::Begin("Overlay",(bool*)__null,	ImGuiWindowFlags_NoDecoration |
+		ImGui::Begin("Overlay",(bool*)0,	ImGuiWindowFlags_NoDecoration |
 												ImGuiWindowFlags_NoBackground |
 												ImGuiWindowFlags_NoInputs |
 												ImGuiWindowFlags_NoNav );

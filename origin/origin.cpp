@@ -1,4 +1,4 @@
-#define GL_GLEXT_PROTOTYPES 1
+
 
 #include "origin.h"
 #include <gtx/quaternion.hpp>
