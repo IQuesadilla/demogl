@@ -17,12 +17,12 @@ else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         VCPKGPLAT = linux
-		LIBS += -lGL -lbrotlidec-static -lbrotlicommon-static
+		LIBS += -lGL -lbrotlidec -lbrotlicommon
 		CXX = g++
     endif
     ifeq ($(UNAME_S),Darwin)
         VCPKGPLAT = osx
-		LIBS += -mmacosx-version-min=13.6 -lbrotlidec -lbrotlicommon -framework CoreAudio -framework GameController -framework IOKit -framework AudioToolbox -framework CoreHaptics -framework CoreVideo -framework ForceFeedback -framework Metal -framework Foundation -framework Cocoa -framework CoreFoundation -framework OpenGL -liconv -framework CoreGraphics -framework Carbon
+		LIBS += -mmacosx-version-min=13.6 -lbrotlidec -lbrotlicommon -framework OpenCL -framework AVFoundation -framework CoreMedia -framework CoreAudio -framework GameController -framework IOKit -framework AudioToolbox -framework CoreHaptics -framework CoreVideo -framework ForceFeedback -framework Metal -framework Foundation -framework Cocoa -framework CoreFoundation -framework OpenGL -liconv -framework CoreGraphics -framework Carbon
 		CXX = g++
     endif
     UNAME_P := $(shell uname -m)
@@ -61,10 +61,10 @@ bin/curve: curve.cpp shader.o camera.o origin.o
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS)
 
 bin/cvdemo: cvdemo.cpp
-	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -lopencv_videoio4 -lopencv_highgui4 -lopencv_core4 -lopencv_imgcodecs4 -lopencv_imgproc4 -lsharpyuv -ljpeg -ltiff -lwebp -llzma -framework OpenCL -framework AVFoundation -framework CoreMedia
+	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -lopencv_videoio4 -lopencv_highgui4 -lopencv_core4 -lopencv_imgcodecs4 -lopencv_imgproc4 -lsharpyuv -ljpeg -ltiff -lwebp -llzma
 
 bin/split: split.cpp scene.o scene_collada.o model.o model_cube.o model_window.o renderable.o shader.o camera.o xml.o origin.o model_blank.o
-	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -lopencv_videoio4 -lopencv_highgui4 -lopencv_core4 -lopencv_imgcodecs4 -lopencv_imgproc4 -lsharpyuv -ljpeg -ltiff -lwebp -llzma -framework OpenCL -framework AVFoundation -framework CoreMedia
+	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS) -lopencv_videoio4 -lopencv_highgui4 -lopencv_core4 -lopencv_imgcodecs4 -lopencv_imgproc4 -lsharpyuv -ljpeg -ltiff -lwebp -llzma
 
 scene.o: scene/scene.cpp scene/scene.h
 	$(CXX) $(CFLAGS) $(INCLUDE) -o $@ -c $<

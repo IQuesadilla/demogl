@@ -153,7 +153,7 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
     else OpenedStack.push(false);
 
     std::shared_ptr<Renderable> dragpnode, dragnode = nullptr;
-    bool isMouseOnLeftHalf, draghovered = false;
+    bool isMouseOnLeftHalf = false, draghovered = false;
 
     for (auto &node : SceneBase)
         UpcomingNodes.push(node);

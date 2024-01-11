@@ -4,6 +4,8 @@
 ```bash
 git submodule init
 git submodule update
+cd vcpkg
+git pull origin master
 ```
 
 ## Install libraries
@@ -12,6 +14,15 @@ git submodule update
 ./vcpkg/vcpkg install sdl2
 ./vcpkg/vcpkg install glm
 ./vcpkg/vcpkg install "imgui[core,opengl3-binding,sdl2-binding,freetype]"
+./vcpkg/vcpkg install opencv
+./vcpkg/vcpkg integrate install
+```
+
+## To Build
+```bash
+cmake -B build/
+cmake --build build/
+./build/split
 ```
 
 ## Every way something has failed

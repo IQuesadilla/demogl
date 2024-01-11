@@ -45,15 +45,15 @@ Window::Window() : Model()
     cap.open(deviceID, apiID);
     cap.set(cv::CAP_PROP_CONVERT_RGB,1.0);
 
+    isEnclosed = false;
+    TCount = 2;
+    name = "window";
+
     if (!cap.isOpened())
     {
         std::cerr << "ERROR! Unable to open camera" << std::endl;
         return;
     }
-
-    TCount = 2;
-    isEnclosed = false;
-    name = "window";
 } 
 
 void Window::update(bool DoDebugDraw)
@@ -69,11 +69,11 @@ void Window::update(bool DoDebugDraw)
     {
         if (cap.grab())
         {
+            bind();
             if (cap.retrieve(frame) && !frame.empty())
-            {
-                bind();
                 setTex(frame);
-            }
+            else
+                setTex(cv::Mat(20, 20, CV_8UC3, cv::Scalar(0, 0, 0)));
         }
     }
 }

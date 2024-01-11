@@ -324,11 +324,11 @@ public:
 
 		ImGui::End();
 
-		if ( SDL_GetRelativeMouseMode() == SDL_FALSE )
-		{
+		//if ( SDL_GetRelativeMouseMode() == SDL_FALSE )
+		//{
 			ImGui::Render();
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-		}
+		//}
 
 		// Swap the internal framebuffer to the screen
 		SDL_GL_SwapWindow(window);
