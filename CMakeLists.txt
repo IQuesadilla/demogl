@@ -1,5 +1,5 @@
 # Set the toolchain file before calling project()
-set(CMAKE_TOOLCHAIN_FILE "/home/iquezada/Code/cpp/demogl/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Vcpkg toolchain file")
+set(CMAKE_TOOLCHAIN_FILE "vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Vcpkg toolchain file")
 
 cmake_minimum_required(VERSION 3.10)
 project(YourProjectName)
