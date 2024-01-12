@@ -1,13 +1,13 @@
 #include "collada.h"
 
-COLLADAScene::COLLADAScene(std::string path) : GLScene(), basicxml()
+COLLADAScene::COLLADAScene(std::string path, bool run_init) : GLScene(run_init), basicxml()
 {
     ifs.open(path);
 
     if (ifs.is_open())
     {
         basepath = path;
-        buffersize = 100;
+        //buffersize = 100;
 
         ifs.clear();  // Clears any error flags
         ifs.seekg(0, std::ios::beg);
@@ -78,7 +78,6 @@ void COLLADAScene::parsecallback(element e)
             models[Arguments["id"]] = CurrentModel;
             CurrentModel->isEnclosed = false;
             CurrentModel->name = Arguments["name"];
-            CurrentModel->Init();
             CurrentModel->shader = AABBShader;
         case Node:
             ;

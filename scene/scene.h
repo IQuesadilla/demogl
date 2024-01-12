@@ -24,14 +24,18 @@
 class GLScene
 {
 public:
-    GLScene();
+    GLScene(bool run_init = true);
     virtual ~GLScene();
 
+    void GLInit();
     void Draw(float deltaTime, std::shared_ptr<Camera> camera);
 
     void UpdateSkybox(cv::Mat skybox);
 
     void ImportScene(GLScene *scene);
+    void ImportModelsFrom(GLScene *scene);
+    void ImportRenderablesFrom(GLScene *scene);
+    void ImportRenderablesFromInto(GLScene *scene, std::vector<std::shared_ptr<Renderable>> *ChildVector);
     std::pair<
         std::vector<std::shared_ptr<Renderable>>*,
         std::vector<std::shared_ptr<Renderable>>::iterator>
@@ -42,9 +46,9 @@ public:
     void DebugDrawAABB(std::shared_ptr<Renderable> renderable, glm::mat4 view_projection, glm::vec3 CameraPos);
 
 //private:
-    std::map< std::shared_ptr<Renderable>, std::vector<std::shared_ptr<Renderable>> > renderables;
-    std::map<std::string, std::shared_ptr<Model> > models;
-    std::map<std::string, std::shared_ptr<_shader> > shaders;
+    std::unordered_map< std::shared_ptr<Renderable>, std::vector<std::shared_ptr<Renderable>> > renderables;
+    std::unordered_map<std::string, std::shared_ptr<Model> > models;
+    std::unordered_map<std::string, std::shared_ptr<_shader> > shaders;
 
     std::vector<std::shared_ptr<Renderable>> SceneBase;
     _shader SkyboxShader;

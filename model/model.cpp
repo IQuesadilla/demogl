@@ -18,6 +18,14 @@ Model::~Model()
     glDeleteVertexArrays(1,&VAO);
 }
 
+void Model::GLInit()
+{
+  updateModel(_UnloadedModel->vertices);
+
+  delete _UnloadedModel;
+  _UnloadedModel = nullptr;
+}
+
 void Model::bind()
 {
     glBindVertexArray(VAO);
@@ -29,6 +37,7 @@ void Model::bind()
 
 void Model::draw()
 {
+  if (_UnloadedModel) GLInit();
     if (!ibuff)
         glDrawArrays(GL_TRIANGLES, 0, 3 * TCount);
     else
@@ -48,6 +57,7 @@ void Model::Init()
     texbuff = 0;
     VAO = 0;
     shader = nullptr;
+    _UnloadedModel = new UnloadedModel;
 }
 
 void Model::setModel(std::vector<GLfloat> vertData)
@@ -60,6 +70,14 @@ void Model::setModel(std::vector<GLfloat> vertData)
 }
 
 void Model::setModel(std::vector<glm::vec3> vertData)
+{
+  if (_UnloadedModel)
+    _UnloadedModel->vertices = vertData;
+  else
+    updateModel(vertData);
+}
+
+void Model::updateModel(std::vector<glm::vec3> vertData)
 {
     if (!VAO) glGenVertexArrays(1,&VAO);
     glBindVertexArray(VAO);

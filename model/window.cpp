@@ -60,7 +60,7 @@ void Window::update(bool DoDebugDraw)
 {
     if (DoDebugDraw)
     {
-        ImGui::SeparatorText("Camera Manager");
+        //ImGui::SeparatorText("Camera Manager");
         if (ImGui::SliderFloat("Contrast", &CamValues.contrast, 0.0f, 255.0f)) cap.set(cv::CAP_PROP_CONTRAST,CamValues.contrast);
         if (ImGui::SliderFloat("Exposure", &CamValues.exposure, 0.0f, 255.0f)) cap.set(cv::CAP_PROP_EXPOSURE,CamValues.exposure);
     }

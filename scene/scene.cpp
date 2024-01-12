@@ -9,7 +9,7 @@
 
 #include "assets/rawcube.h"
 
-GLScene::GLScene()
+GLScene::GLScene(bool run_init)
 {
     selectClosest = false;
     SkyboxTexID = 0;
@@ -19,11 +19,44 @@ GLScene::GLScene()
     AABBVBO[0] = 0;
     AABBVBO[1] = 0;
 
-    SkyboxShader.load("assets/skybox.vert","assets/skybox.frag");
-    //std::cout << SkyboxShader.getErrors();
-    UpdateSkybox(cv::imread("assets/skybox.png"));
+    AABBShader.reset(new _shader);
+    AABBShader->load("assets/solid_color.vert","assets/solid_color.frag");
+    if (run_init) GLInit();
+}
 
-    AABBShader.reset(new _shader("assets/solid_color.vert","assets/solid_color.frag"));
+void GLScene::GLInit()
+{
+    std::chrono::steady_clock::time_point BeginInit = std::chrono::steady_clock::now(); 
+
+    SkyboxShader.load("assets/skybox.vert","assets/skybox.frag");
+    std::cout << "Skybox shader load took " <<
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
+      << " milliseconds" << std::endl;
+    BeginInit = std::chrono::steady_clock::now();
+
+    SkyboxShader.compile();
+    std::cout << "Skybox shader compile took " <<
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
+      << " milliseconds" << std::endl;
+    BeginInit = std::chrono::steady_clock::now();
+
+    auto image = cv::imread("assets/skybox.png");
+    std::cout << "Skybox image load took " <<
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
+      << " milliseconds" << std::endl;
+    BeginInit = std::chrono::steady_clock::now();
+ 
+    UpdateSkybox(cv::imread("assets/skybox.png"));
+    std::cout << "UpdateSkybox took " <<
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
+      << " milliseconds" << std::endl;
+    BeginInit = std::chrono::steady_clock::now();
+
+    AABBShader->compile();
+    std::cout << "AABB shader compile took " <<
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
+      << " milliseconds" << std::endl;
+      //BeginInit = std::chrono::steady_clock::now();
     //std::cout << AABBShader.getErrors();
 }
 
@@ -34,7 +67,7 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
         = std::make_pair(nullptr, 1000.0f);
     bool FoundClosestHovered = false;
 
-    glm::mat4 projection = camera->GetProjectionMatrix(0.5f,86.7f);
+    glm::mat4 projection = camera->ProjectionMatrix;
     glm::mat4 view = camera->GetViewMatrix();
     glm::mat4 view_projection = projection * view;
     
@@ -42,7 +75,7 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
     {
         None,
         SceneEditor,
-        ModelManager,
+        //ModelManager,
         ModelInfo,
         SceneInfo
     } CurrentDebugSceneTab;
@@ -56,11 +89,11 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
             CurrentDebugSceneTab = SceneEditor;
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Model Manager"))
+        /*if (ImGui::BeginTabItem("Model Manager"))
         {
             CurrentDebugSceneTab = ModelManager;
             ImGui::EndTabItem();
-        }
+        }*/
         if (ImGui::BeginTabItem("Model Info"))
         {
             CurrentDebugSceneTab = ModelInfo;
@@ -73,10 +106,10 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
         }
         ImGui::EndTabBar();
     }
-
+/*
     if (CurrentDebugSceneTab == ModelInfo)
     {
-        ImGui::BeginChild("ModelInfoPane", ImVec2(ImGui::GetContentRegionAvail().x, 260), ImGuiChildFlags_ResizeY, 0);
+        ImGui::BeginChild("ModelInfoPane", ImVec2(ImGui::GetContentRegionAvail().x, 0), 0, 0);
         for (auto &model : models)
         {
             ImGui::SeparatorText(model.first.c_str());
@@ -92,26 +125,48 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
             ImGui::Text("Shader ID: %p", model.second->shader.get());
         }
         ImGui::EndChild();
-    }
+    }*/
 
     if (CurrentDebugSceneTab == SceneInfo)
     {
-        ImGui::BeginChild("SceneInfoPane", ImVec2(ImGui::GetContentRegionAvail().x, 260), ImGuiChildFlags_ResizeY, 0);
+        ImGui::BeginChild("SceneInfoPane", ImVec2(ImGui::GetContentRegionAvail().x, 0), 0, 0);
         ImGui::Text("Author: %s", Info.Author.c_str());
         ImGui::Text("Authoring Tool: %s", Info.AuthoringTool.c_str());
         ImGui::Text("Created: %s", Info.Created.c_str());
         ImGui::Text("Modified: %s", Info.Modified.c_str());
+        ImGui::Text("Skybox VAO: %d", SkyboxVAO);
+        ImGui::Text("AABB Shader ID: %p", AABBShader.get());
         ImGui::EndChild();
     }
 
     // Update all of the models in the scene once
+    if (CurrentDebugSceneTab == ModelInfo) ImGui::BeginChild("ModelInfoPane");
     for (auto &model : models)
-        for (auto &cube : renderables)
-            if (cube.first->_model == model.second)
-            {
-                model.second->update(CurrentDebugSceneTab == ModelManager);
-                break;
-            }
+    { 
+                if (CurrentDebugSceneTab == ModelInfo)
+                {
+                  //ImGui::BeginChild("ModelInfoPane");
+                  ImGui::SeparatorText(model.first.c_str());
+                  ImGui::Text("Name: \"%s\"", model.second->name.c_str());
+                  ImGui::Text("Visual Triangle Count: %d", model.second->TCount);
+                  ImGui::Text("Hitbox Vertex Count: %zu", model.second->CollisionVerts.size() / 3);
+                  ImGui::Text("Hitbox Index Count: %zu", model.second->CollisionIndices.size());
+                  ImGui::Text("Is Enclosed? %s", model.second->isEnclosed ? "true" : "false");
+                  ImGui::Text("Uses Mipmaps? %s", model.second->doGenerateMipmap ? "true" : "false");
+                  ImGui::Text("Vertex Array Object: %d", model.second->VAO);
+                  ImGui::Text("Vertex Buffer Object: %d", model.second->vertbuff);
+                  ImGui::Text("Element Buffer Object: %d", model.second->ibuff);
+                  ImGui::Text("Shader ID: %p", model.second->shader.get()); 
+                  //ImGui::EndChild();
+                }
+      for (auto &cube : renderables)
+        if (cube.first->_model == model.second)
+        {
+          model.second->update(CurrentDebugSceneTab == ModelInfo);
+          break;
+        }
+    }
+    if (CurrentDebugSceneTab == ModelInfo) ImGui::EndChild();
 
     if (CurrentDebugSceneTab == SceneEditor)
     {
@@ -325,8 +380,8 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
     }
     selectClosest = false;
 
-    bool DoSelectionDraw = (CurrentDebugSceneTab == SceneEditor);
-    if (DoSelectionDraw) ImGui::BeginChild("SelectedObjects", ImVec2(ImGui::GetContentRegionAvail().x, 260), ImGuiChildFlags_ResizeY, 0);
+    bool DoSelectionDraw = (CurrentDebugSceneTab == SceneEditor) || (CurrentDebugSceneTab == None);
+    if (DoSelectionDraw) ImGui::BeginChild("SelectedObjects", ImVec2(ImGui::GetContentRegionAvail().x, 0), 0,0);//ImGuiChildFlags_ResizeY, 0);
 
     // Either render an object or sort it by distance
     for (auto &cube : renderables)
@@ -385,8 +440,11 @@ void GLScene::UpdateSkybox(cv::Mat skybox)
     if (SkyboxVAO == 0)
     {
         glGenVertexArrays(1, &SkyboxVAO);
+        std::cout << "Generating VAO" << std::endl;
     }
     glBindVertexArray(SkyboxVAO);
+
+    std::cout << "SKYBOX VAO -> " << SkyboxVAO << std::endl;
 
     if (SkyboxVBO == 0)
     {
@@ -467,8 +525,28 @@ GLScene::~GLScene()
 
 void GLScene::ImportScene(GLScene *scene)
 {
-    ;
+    ImportModelsFrom(scene);
+    ImportRenderablesFrom(scene);
+    std::cout << "Successfully Imported Scene" << std::endl;
 }
+
+void GLScene::ImportModelsFrom(GLScene *scene)
+{
+  models.insert(scene->models.begin(), scene->models.end());
+  std::cout << "Successfully imported all models from scene" << std::endl;
+}
+
+void GLScene::ImportRenderablesFrom(GLScene *scene)
+{
+  ImportRenderablesFromInto(scene, &SceneBase);
+}
+
+void GLScene::ImportRenderablesFromInto(GLScene *scene, std::vector<std::shared_ptr<Renderable>> *ChildVector)
+{
+    renderables.insert(scene->renderables.begin(),scene->renderables.end());
+    ChildVector->insert(ChildVector->end(),scene->SceneBase.begin(),scene->SceneBase.end());
+    std::cout << "Successfully imported all renderables from scene" << std::endl;
+} 
 
 std::pair<
     std::vector<std::shared_ptr<Renderable>>*,

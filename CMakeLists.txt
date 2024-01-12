@@ -6,7 +6,7 @@ project(YourProjectName)
 
 # Set the C++ standard and compilation flags
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # -Wall
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast") # -Wall
 
 # Find required packages
 find_package(SDL2 CONFIG REQUIRED)
@@ -31,6 +31,7 @@ add_library(libQ OBJECT
 add_library(glscene OBJECT
     scene/scene.cpp
     scene/collada.cpp
+    scene/loader.cpp
     origin/origin.cpp
     renderable/renderable.cpp
     model/model.cpp

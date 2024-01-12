@@ -31,6 +31,7 @@
 
 #include "scene/scene.h"
 #include "scene/collada.h"
+#include "scene/loader.h"
 #include "renderable/renderable.h"
 #include "origin/origin.h"
 #include "model/model.h"
@@ -99,21 +100,20 @@ public:
 			return;
 		}
 
-		/*glewExperimental = true;
-		if (glewInit() != GLEW_OK)*/
-
-		SDL_GL_MakeCurrent(window, glcontext);
+    SDL_GL_MakeCurrent(window, glcontext);
 
 		if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
 		{
 			printf( "Failed loading glad" );
 			return;
 		}
-        else std::cout << "Successfully loaded GLAD" << std::endl;
+    else std::cout << "Successfully loaded GLAD" << std::endl;
 
 		#if AA_LEVEL
 			glEnable(GL_MULTISAMPLE);
 		#endif
+
+    cv::setNumThreads(1);
 
 		// Load window icon and set if successfully loaded
 		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
@@ -138,8 +138,10 @@ public:
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 
-		world.reset( new GLScene()); //*/COLLADAScene("assets/cube.dae") );
-		//((COLLADAScene*)world.get())->parse();
+    SceneLoader.reset(new GLSceneLoader());
+
+		world.reset( new GLScene() );
+    SceneLibrary["RootScene"] = world;
 		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
 		world->models["blank"].reset( new Blank() );
 		world->models["cube"].reset( new myCube() );
@@ -195,9 +197,10 @@ public:
 
 		fontSize = 1.0f;
 
-		for (auto &x : fps_array)
-			x = 1.0f;
-		fps_array_it = fps_array.begin();
+		//for (auto &x : fps_array)
+		//	x = 1.0f;
+		//fps_array_it = fps_array.begin();
+    previous_fps = 1.0f;
 
 		if (SDL_GL_SetSwapInterval(-1) < 0)
 			SDL_GL_SetSwapInterval(1);
@@ -205,6 +208,7 @@ public:
 
 		std::cout << "Setup Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() << "mS" << std::endl;
 		start = std::chrono::steady_clock::now();
+    fps_start = std::chrono::steady_clock::now();
 
 		// If here, initialization succeeded and loop should be enabled
 		flags.doLoop = true;
@@ -220,7 +224,7 @@ public:
 	void runOnce()
 	{
 		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplSDL2_NewFrame();
+		if ( SDL_GetRelativeMouseMode() == SDL_FALSE ) ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
 
 		// Check for any inputs from the user
@@ -235,7 +239,8 @@ public:
 
 		// Projection and view are the same per model because they are affected by the camera
 		//glMatrixMode(GL_PROJECTION);
-		glm::mat4 projection = camera->GetProjectionMatrix(0.5f,86.7f);
+    camera->BuildProjectionMatrix(0.5f,86.7f); // Needs to run every frame
+		glm::mat4 projection = camera->ProjectionMatrix;
 		glm::mat4 view = camera->GetViewMatrix();
 
 		glDepthMask( GL_TRUE );
@@ -253,82 +258,140 @@ public:
 		origin->render(projection, view, 0.5f);
 
 		std::vector<std::string> KeysToDestory;
+    std::shared_ptr<GLScene> SelectedWorld = nullptr;
+
+    if (ImGui::BeginMainMenuBar())
+    {
+      if (ImGui::BeginMenu("File"))
+      {
+		    if (ImGui::MenuItem("Fullscreen"))
+		    {
+		    	// Check if my fullscreen flag is set, set it to opposite
+		    	bool isF = SDL_GetWindowFlags(window) & myFFlag;
+		    	SDL_SetWindowFullscreen(window, isF ? 0 : myFFlag);
+		    }
+		    if (ImGui::MenuItem("Demo Menu")) flags.showDemoMenu = !flags.showDemoMenu;
+		    if (ImGui::MenuItem("Import File"))
+        {
+          //flags.showObjectManager = true;
+          myFileBrowser.SetTitle("Import");
+          myFileBrowser.SetPwd("assets/");
+          myFileBrowser.Open();
+          //myFileBrowser.Display();
+        }
+		    if (ImGui::MenuItem("Quit")) flags.doLoop = false;
+        ImGui::EndMenu();
+      }
+
+      if (ImGui::BeginMenu("Window"))
+      {
+		    bool tempOriginColorState = origin->getColors();
+		    if (ImGui::MenuItem("Colored Origin",NULL,tempOriginColorState)) origin->setColors(!tempOriginColorState);
+		    bool tempCursorColorState = cursor->getColors();
+		    if (ImGui::MenuItem("Colored Cursor",NULL,tempCursorColorState)) cursor->setColors(!tempCursorColorState);
+
+        ImGui::DragFloat("Font Size", &fontSize, 0.01f);
+		    ImGui::SetWindowFontScale(fontSize);
+
+		    bool vsync_check = (SDL_GL_GetSwapInterval() != 0);
+		    if (ImGui::MenuItem("VSync",NULL,vsync_check))
+		    {
+          vsync_check = !vsync_check;
+		    	if (!vsync_check)
+		    	{
+		    		SDL_GL_SetSwapInterval(0);
+		    	}
+		    	else
+		    	{
+		    		if (SDL_GL_SetSwapInterval(-1) < 0)
+		  	  		SDL_GL_SetSwapInterval(1);
+		  	  }
+		    }
+        ImGui::EndMenu();
+      }
+
+      if (ImGui::BeginMenu("Scene"))
+      {
+        ImGui::Text("%p",world.get());
+        //if (ImGui::MenuItem("Temp Load Item")) SceneLoader->QueueFile("thisone");
+        //if (ImGui::MenuItem("Scene Select.."))
+        //  ImGui::OpenPopup("my_select_popup"); 
+        if (ImGui::BeginMenu("Scene Select"))
+        {
+          //ImGui::SeparatorText((std::string("Available Scenes: ") + std::to_string(LoadedScenes.size())).c_str());
+          for (auto &it : SceneLibrary)
+            if (ImGui::MenuItem(it.first.c_str(),NULL,world == it.second))
+               SelectedWorld = it.second;
+          ImGui::EndMenu();
+        }
+        ImGui::EndMenu();
+      }
+      ImGui::EndMainMenuBar();
+    }
 
 		if ( flags.showDemoMenu )
 			ImGui::ShowDemoWindow(&flags.showDemoMenu);
 
-		ImGui::Begin("Menu",(bool*)0,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);// Create a window called "Hello, world!" and append into it.
+    bool isRelMouseMode = SDL_GetRelativeMouseMode() == SDL_TRUE;
+    ImGui::SetNextWindowCollapsed(isRelMouseMode,ImGuiCond_Always);
+    //ImGui::SetNextWindowPos({0,100});
+    //ImGui::SetNextWindowSize(ImVec2(0,400));
 
-		ImGui::Text("Press ESCAPE to toggle menu");               // Display some text (you can use a format strings too)
+    float ScreenHeight = ImGui::GetMainViewport()->Size.y;
+		ImGui::Begin("Menu",(bool*)0, ImGuiWindowFlags_NoMove | (isRelMouseMode ? 0 : ImGuiWindowFlags_NoCollapse));
+    float MenuWindowHeight = ImGui::GetWindowHeight();
+    //float MenuWindowPosY = ImGui::GetWindowPos().y;
+    ImGui::SetWindowPos({0,ScreenHeight - MenuWindowHeight});
+    //ImGui::SetWindowSize(ImVec2(0,ScreenHeight - MenuWindowPosY));
 
-		if (ImGui::Button("Fullscreen"))
-		{
-			// Check if my fullscreen flag is set, set it to opposite
-			bool isF = SDL_GetWindowFlags(window) & myFFlag;
-			SDL_SetWindowFullscreen(window, isF ? 0 : myFFlag);
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Demo Menu")) flags.showDemoMenu = !flags.showDemoMenu;
-		ImGui::SameLine();
-		if (ImGui::Button("New")) flags.showObjectManager = !flags.showObjectManager;
-		ImGui::SameLine();
-		if (ImGui::Button("Quit")) flags.doLoop = false;
-
-		bool tempOriginColorState = origin->getColors();
-		if (ImGui::Checkbox("Origin", &tempOriginColorState)) origin->setColors(tempOriginColorState);
-		ImGui::SameLine();
-		bool tempCursorColorState = cursor->getColors();
-		if (ImGui::Checkbox("Cursor", &tempCursorColorState)) cursor->setColors(tempCursorColorState);
-		ImGui::SameLine();
-
-		bool vsync_check = (SDL_GL_GetSwapInterval() != 0);
-		if (ImGui::Checkbox("VSync",&vsync_check))
-		{
-			if (!vsync_check)
-			{
-				SDL_GL_SetSwapInterval(0);
-			}
-			else
-			{
-				if (SDL_GL_SetSwapInterval(-1) < 0)
-					SDL_GL_SetSwapInterval(1);
-			}
-		}
-
-		//ImGui::ColorEdit3("Background Color", (float*)&clear_color); // Edit 3 floats representing a color
-		
-		ImGui::DragFloat("Font Size", &fontSize, 0.01f);
-		ImGui::SetWindowFontScale(fontSize);
-		//ImGui::GetIO().Fonts->
-		//font->
+    ImGui::Text("Press ESCAPE to toggle menu");
 
 		world->Draw(deltaTime, camera);
 
 		ImGui::End();
+    myFileBrowser.Display();
+    if ( myFileBrowser.HasSelected() )
+    {
+      SceneLoader->QueueFile(myFileBrowser.GetSelected());
+      myFileBrowser.ClearSelected();
+    }
 
 		ImGui::Begin("Overlay",(bool*)0,	ImGuiWindowFlags_NoDecoration |
 												ImGuiWindowFlags_NoBackground |
 												ImGuiWindowFlags_NoInputs |
 												ImGuiWindowFlags_NoNav );
-		ImGui::SetWindowPos({0,0});
+		ImGui::SetWindowPos({0,20});
 
 		ImGui::SetWindowFontScale(fontSize);
 
 		ImGui::SetWindowSize( ImGui::GetIO().DisplaySize );
 
-		*fps_array_it = 1000.0f/deltaTime;
-		++fps_array_it;
-		if (fps_array_it == fps_array.end())
-			fps_array_it = fps_array.begin();
+		float InverseDeltaTime = 1000.0f/deltaTime;
+		//++fps_array_it;
+		//if (fps_array_it == fps_array.end())
+		//	fps_array_it = fps_array.begin();
+    
+    min_fps = glm::min(min_fps, InverseDeltaTime);
+    max_fps = glm::max(max_fps, InverseDeltaTime);
 
-		if (fps_count > int(current_fps / 4))
+    current_fps += InverseDeltaTime;
+    ++fps_count;
+		if (start > fps_start + std::chrono::milliseconds(500))
 		{
-			current_fps = std::accumulate(fps_array.begin(),fps_array.end(),1.0f) / fps_array.size();
-			fps_count = 0;
-		}
-		else ++fps_count;
 
-		ImGui::Text("FPS: %.3f", current_fps);
+		//	current_fps = std::accumulate(fps_array.begin(),fps_array.end(),1.0f) / fps_array.size();
+      previous_fps = current_fps / float(fps_count);
+      current_fps = 0;
+			fps_count = 0;
+      previous_min_fps = min_fps;
+      previous_max_fps = max_fps;
+      min_fps = INFINITY;
+      max_fps = 0.f;
+      fps_start = std::chrono::steady_clock::now();
+		}
+		//else ++fps_count;
+
+		ImGui::Text("FPS: %8.3f,%8.3f,%8.3f", previous_fps,previous_min_fps,previous_max_fps);
 		ImGui::Text("Camera: %.3f,%.3f,%.3f", camera->Position.x, camera->Position.y, camera->Position.z);
 		ImGui::Text("Camera Direction: %.3f,%.3f,%.3f", camera->Front.x, camera->Front.y, camera->Front.z);
 		ImGui::Text("Yaw: %.3f, Pitch: %.3f", camera->Yaw, camera->Pitch);
@@ -371,6 +434,45 @@ public:
 
 			world->renderables.erase(node);
 		}
+
+    if (SelectedWorld)
+      world = SelectedWorld;
+
+    std::chrono::steady_clock::time_point BeginRetrieve = std::chrono::steady_clock::now();
+    auto ImportedScene = SceneLoader->Retrieve();
+    if (ImportedScene.second)
+    {
+      std::cout << "Retrieve took " <<
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginRetrieve).count()
+        << " milliseconds" << std::endl;
+      BeginRetrieve = std::chrono::steady_clock::now();
+
+      //GLScene *tempptr = new GLScene(); 
+      if (SceneLibrary.find(ImportedScene.first) == SceneLibrary.end())
+      {
+        SceneLibrary[ImportedScene.first] = ImportedScene.second;
+        ImportedScene.second->GLInit();
+
+        std::cout << "Scene GLInit() took " <<
+          std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginRetrieve).count()
+          << " milliseconds" << std::endl;
+        BeginRetrieve = std::chrono::steady_clock::now();
+
+        for (auto &x : ImportedScene.second->models)
+        {
+          //x.second->shader = ImportedScene.second->AABBShader;
+          x.second->GLInit();
+        }
+        std::cout << "Model GLInit() took " <<
+          std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginRetrieve).count()
+          << " milliseconds" << std::endl;
+        //tempptr->ImportScene(ImportedScene.second.get());
+      }
+      else
+      {
+        std::cout << "Imported Scene already exists!" << std::endl;
+      }
+    }
 
 		return;
 	}
@@ -518,6 +620,7 @@ private:
 
 	SDL_Window *window;
 	SDL_GLContext glcontext;
+  ImGui::FileBrowser myFileBrowser;
 
 	float fontSize;
 
@@ -526,15 +629,20 @@ private:
 	std::chrono::steady_clock::time_point start;
 
 	std::shared_ptr<ImFont> font;
-	std::array<float, 60UL> fps_array;
-	std::array<float, 60UL>::iterator fps_array_it;
+	//std::array<float, 60UL> fps_array;
+	//std::array<float, 60UL>::iterator fps_array_it;
 	float current_fps;
 	int fps_count;
+  float previous_fps;
+  float previous_min_fps, min_fps, previous_max_fps, max_fps;
+  std::chrono::steady_clock::time_point fps_start;
 
 	std::shared_ptr<GLScene> world;
+  std::unordered_map<std::string,std::shared_ptr<GLScene>> SceneLibrary;
 	std::unique_ptr<Origin> origin;
 	std::unique_ptr<Origin> cursor;
 	std::shared_ptr<Camera> camera;
+  std::shared_ptr<GLSceneLoader> SceneLoader;
 };
 
 int main()

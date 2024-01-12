@@ -39,6 +39,8 @@ public:
     Model( Model *_new );
     virtual ~Model();
 
+    void GLInit();
+
     void bind();
     void draw();
 
@@ -60,12 +62,19 @@ public:
     void Init();
     void setModel(std::vector<GLfloat> vertData);
     void setModel(std::vector<glm::vec3> vertData);
+    void updateModel(std::vector<glm::vec3> vertData);
     void setIndices(std::vector<GLuint> indexData);
     void setTex(cv::Mat image = cv::Mat(), std::vector<GLfloat> uvData = std::vector<GLfloat>());
     void setColors(std::vector<GLfloat> colorData);
 
     GLuint vertbuff, uvbuff, colorbuff, texbuff, ibuff;
     bool doGenerateMipmap;
+
+    struct UnloadedModel
+    {
+      std::vector<glm::vec3> vertices;
+    };
+    UnloadedModel *_UnloadedModel;
 };
 
 #endif

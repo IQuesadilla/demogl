@@ -55,11 +55,12 @@ Origin::Origin()
     glEnableVertexAttribArray(1);
 
     shader.reset( new _shader() );
-    if ( shader->load("assets/origin.vert","assets/origin.frag") )
+    if ( !shader->load("assets/origin.vert","assets/origin.frag") )
     {
         std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
         return;
     }
+    shader->compile();
 }
 
 Origin::~Origin()
