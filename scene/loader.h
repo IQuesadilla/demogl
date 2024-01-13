@@ -1,5 +1,6 @@
 #pragma once
 #include "scene.h"
+//#include "shader.h"
 #include <thread>
 #include <queue>
 #include <mutex>
@@ -21,5 +22,6 @@ private:
   std::queue<std::filesystem::path> FileQueue;
   std::queue<std::pair<std::string,std::shared_ptr<GLScene>>> SceneQueue;
   std::thread LoaderThread;
+  //std::shared_ptr<_shader> _DefaultShader;
   bool Polling, ShouldExit;
 };

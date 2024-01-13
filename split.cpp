@@ -1,6 +1,6 @@
 #define SDL_MAIN_HANDLED
 #include "glad/glad.h"
-#include "glad/khrplatform.h"
+//#include "glad/khrplatform.h"
 #include "SDL.h"
 #if defined __has_include
     #if __has_include (<SDL_opengl.h>)
@@ -14,12 +14,8 @@
 #include <iostream>
 #include <memory>
 #include <vector>
-#include <map>
-#include <list>
-#include <stack>
-#include <array>
+#include <unordered_map>
 #include <chrono>
-#include <numeric>
 
 #include <glm.hpp>
 #include <gtx/quaternion.hpp>
@@ -30,16 +26,13 @@
 #include "scene/imfilebrowser.h"
 
 #include "scene/scene.h"
-#include "scene/collada.h"
 #include "scene/loader.h"
 #include "renderable/renderable.h"
 #include "origin/origin.h"
-#include "model/model.h"
+//#include "model/model.h"
 #include "model/cube.h"
 #include "model/window.h"
 #include "model/blank.h"
-
-#include "assets/rawcube.h"
 
 #define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
@@ -102,7 +95,7 @@ public:
 
     SDL_GL_MakeCurrent(window, glcontext);
 
-		if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
 		{
 			printf( "Failed loading glad" );
 			return;
@@ -141,6 +134,25 @@ public:
     SceneLoader.reset(new GLSceneLoader());
 
 		world.reset( new GLScene() );
+
+    DefaultSkyboxVAO.Generate();
+    DefaultAABBVAO.Generate();
+    DefaultSkyboxTex.Generate();
+      
+    //auto image = cv::imread("assets/skybox.png");
+
+    DefaultShader.reset(new _shader("assets/solid_color.vert","assets/solid_color.frag"));
+    DefaultSkyboxShader.reset(new _shader("assets/skybox.vert","assets/skybox.frag"));
+    world->ImportWorldOptions(
+        DefaultSkyboxVAO, DefaultAABBVAO,
+        DefaultSkyboxTex,
+        DefaultSkyboxShader, DefaultShader);
+    world->GLInit();
+    world->UpdateSkybox(cv::imread("assets/skybox.png"));
+    //DefaultSkyboxTex = world->SkyboxTexID;
+    //DefaultShader->load("assets/solid_color.vert","assets/solid_color.frag");
+    //SkyboxShader->load("assets/skybox.vert","assets/skybox.frag");
+
     SceneLibrary["RootScene"] = world;
 		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
 		world->models["blank"].reset( new Blank() );
@@ -153,7 +165,7 @@ public:
 			if (model.second->shader == nullptr)
 			{
 				std::cout << "Set default shader for \"" << model.first << '"' << std::endl;
-				model.second->shader.reset(&world->AABBShader);
+				model.second->shader.reset(&world->DefaultShader);
 			}*/
 
 		origin.reset( new Origin() );
@@ -451,6 +463,10 @@ public:
       if (SceneLibrary.find(ImportedScene.first) == SceneLibrary.end())
       {
         SceneLibrary[ImportedScene.first] = ImportedScene.second;
+        ImportedScene.second->ImportWorldOptions(
+          DefaultSkyboxVAO, DefaultAABBVAO,
+          DefaultSkyboxTex,
+          DefaultSkyboxShader,DefaultShader);
         ImportedScene.second->GLInit();
 
         std::cout << "Scene GLInit() took " <<
@@ -458,14 +474,14 @@ public:
           << " milliseconds" << std::endl;
         BeginRetrieve = std::chrono::steady_clock::now();
 
-        for (auto &x : ImportedScene.second->models)
+        /*for (auto &x : ImportedScene.second->models)
         {
-          //x.second->shader = ImportedScene.second->AABBShader;
+          //x.second->shader = ImportedScene.second->DefaultShader;
           x.second->GLInit();
         }
         std::cout << "Model GLInit() took " <<
           std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginRetrieve).count()
-          << " milliseconds" << std::endl;
+          << " milliseconds" << std::endl;*/
         //tempptr->ImportScene(ImportedScene.second.get());
       }
       else
@@ -642,6 +658,10 @@ private:
 	std::unique_ptr<Origin> origin;
 	std::unique_ptr<Origin> cursor;
 	std::shared_ptr<Camera> camera;
+  std::shared_ptr<_shader> DefaultShader, DefaultSkyboxShader;
+  SharedVAO DefaultSkyboxVAO, DefaultAABBVAO;
+  SharedTex DefaultSkyboxTex;
+  //SharedVBO DefaultSkyboxVBO, DefaultAABBVBO;
   std::shared_ptr<GLSceneLoader> SceneLoader;
 };
 

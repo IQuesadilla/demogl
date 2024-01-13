@@ -8,6 +8,8 @@ project(YourProjectName)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast") # -Wall
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Find required packages
 find_package(SDL2 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
@@ -34,6 +36,7 @@ add_library(glscene OBJECT
     scene/loader.cpp
     origin/origin.cpp
     renderable/renderable.cpp
+    renderable/gldata.cpp
     model/model.cpp
     model/cube.cpp
     model/window.cpp

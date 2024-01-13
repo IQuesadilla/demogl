@@ -3,20 +3,36 @@
 #include "scene.h"
 
 #include <stack>
+#include <map>
 
 class COLLADAScene : public GLScene, public basicxml
 {
 public:
-    COLLADAScene(std::string path,bool run_init = true);
+  COLLADAScene(std::string path);
 
-    int loadcallback(char *buffer, int buffsize);
-    void parsecallback(element e);
+  int loadcallback(char *buffer, int buffsize);
+  void parsecallback(element e);
 
-    std::ifstream ifs;
-    std::string basepath;
+  std::ifstream ifs;
+  std::string basepath;
 
-    enum TagOptions // Every tag, per the COLLADA v1.5 spec
-    {
+  std::string CurrentLoadingArray; // Index for SourcesArray
+  std::string POSITIONSemantic; //
+  std::string VerticesID;
+  int LoaderIT;
+
+  struct SourceTag {
+    std::vector<float> FloatArray;
+    int AccessorStride;
+    // Accessor definition
+  };
+  std::unordered_map<std::string,SourceTag> SourcesArray;
+  std::vector<float> FloatVector; // For loading 
+  std::vector<uint> UIntVector; // For loading indices
+  std::shared_ptr<Model> CurrentModel;
+
+  enum TagOptions // Every tag, per the COLLADA v1.5 spec
+  {
         None = 0,
         Acceleration,
         Accessor,
@@ -467,18 +483,14 @@ public:
         Ymag,
         Zfar,
         Znear,
-    };
+  };
 
-    struct Tag
-    {
-        TagOptions Name;
-        AssetData *CurrentAsset;
-    };
-    std::stack<Tag> CurrentTags;
+  struct Tag
+  {
+    TagOptions Name;
+    AssetData *CurrentAsset;
+  };
+  std::stack<Tag> CurrentTags;
 
-    std::vector<float> FloatVector;
-    std::vector<int> IntVector;
-    std::shared_ptr<Model> CurrentModel;
-
-    static std::map<std::string,TagOptions> TagLUT;
+  static std::map<std::string,TagOptions> TagLUT;
 };

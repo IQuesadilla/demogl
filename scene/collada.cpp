@@ -1,126 +1,214 @@
 #include "collada.h"
 
-COLLADAScene::COLLADAScene(std::string path, bool run_init) : GLScene(run_init), basicxml()
+COLLADAScene::COLLADAScene(std::string path) : GLScene(), basicxml()
 {
-    ifs.open(path);
+  LoaderIT = 0;
+  ifs.open(path);
 
-    if (ifs.is_open())
-    {
-        basepath = path;
-        //buffersize = 100;
+  if (ifs.is_open())
+  {
+    basepath = path;
+    //buffersize = 100;
 
-        ifs.clear();  // Clears any error flags
-        ifs.seekg(0, std::ios::beg);
+    ifs.clear();  // Clears any error flags
+    ifs.seekg(0, std::ios::beg);
 
-        parse();
-        std::cout << "Finished Parsing file " << path << std::endl;
-    } else {
-        std::cout << "Failed to open file " << path << std::endl;
-    }
+    std::chrono::steady_clock::time_point ParseBegin = std::chrono::steady_clock::now();
+    parse();
+    std::cout << "Finished Parsing file " << path << ", Took " <<
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ParseBegin).count()
+      << " milliseconds" << std::endl;
+  } else {
+    std::cout << "Failed to open file " << path << std::endl;
+  }
 }
 
 int COLLADAScene::loadcallback(char *buffer, int buffsize)
 {
-    ifs.read(buffer, buffsize);
-    int s = ifs.gcount();
-    //std::cout << "Requested " << buffsize << " bytes, Read " << s << " bytes" << std::endl;
-    return s;
+  ifs.read(buffer, buffsize);
+  int s = ifs.gcount();
+  //std::cout << "Requested " << buffsize << " bytes, Read " << s << " bytes" << std::endl;
+  return s;
 }
 
 void COLLADAScene::parsecallback(element e)
 {
-    Tag LoadingTag;
-    std::string name(e.name);//,e.namelen);
-    std::string value(e.value);//,e.valuelen);
-    LoadingTag.Name = TagLUT[name];
+  Tag LoadingTag;
+  std::string name(e.name);//,e.namelen);
+  std::string value(e.value);//,e.valuelen);
+  LoadingTag.Name = TagLUT[name];
 
-    //std::cout << "Name: " << name << ", Enum: " << LoadingTag.Name << std::endl;
-    if (e.valuelen > 0) std::cout << "Value: {" << value << "}" << std::endl;
-    //std::cout << "Closing: " << e.isClosing << ", Standalone: " << e.isStandalone << ", First: " << e.isFirst << std::endl;
-    if (!e.isClosing) {
-        std::map<std::string,std::string> Arguments;
-        for (auto arg = e.atts; arg != nullptr; arg = arg->next)
-            Arguments[std::string(arg->name)/*,arg->namelen)*/] = std::string(arg->value);//,arg->valuelen);
+  //std::cout << "--> Name: " << name << ", Enum: " << LoadingTag.Name << std::endl;
+  //if (e.valuelen > 0) std::cout << "--> Value: {" << value << "}" << std::endl;
+  //std::cout << "--> Closing: " << e.isClosing << ", Standalone: " << e.isStandalone << ", First: " << e.isFirst << std::endl;
+  if (!e.isClosing) {
+    std::unordered_map<std::string,std::string> Arguments;
+    for (auto arg = e.atts; arg != nullptr; arg = arg->next)
+      Arguments[std::string(arg->name)/*,arg->namelen)*/] = std::string(arg->value);//,arg->valuelen);
 
-        switch (LoadingTag.Name)
-        {
-        case Asset:
-            LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
-            break;
-        case Author:
-            CurrentTags.top().CurrentAsset->Author.append(value);
-            break;
-        case AuthoringTool:
-            CurrentTags.top().CurrentAsset->AuthoringTool.append(value);
-        case COLLADA:
-            LoadingTag.CurrentAsset = &Info;
-            break;
-        case Contributor:
-            LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
-            break;
-        case Coverage:
-            LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
-            break;
-        case Created:
-            CurrentTags.top().CurrentAsset->Created.append(value);
-            break;
-        case GeographicLocation:
-            CurrentTags.top().CurrentAsset->GeographicLocation.push_back(value);
-            break;
-        case Keywords:
-            CurrentTags.top().CurrentAsset->Keywords.push_back(value);
-            break;
-        case Modified:
-            CurrentTags.top().CurrentAsset->Modified.append(value);
-            break;
-        case Geometry:
-            CurrentModel.reset(new Model());
-            models[Arguments["id"]] = CurrentModel;
-            CurrentModel->isEnclosed = false;
-            CurrentModel->name = Arguments["name"];
-            CurrentModel->shader = AABBShader;
-        case Node:
-            ;
-            break;
-        case P:
-        {
-            float number;
-            std::istringstream data(value);
-            while (data >> number)
-                FloatVector.push_back(number);
-        }   break;
-        case Scene:
-            ;
-            break;
-        default:
-            // This is very important.
-            // If this is run, a COLLADA feature is being used that isn't supported
-            //std::cout << "Running default option for tag " << name << std::endl;
-            break;
-        };
+    switch (LoadingTag.Name)
+    {
+    case Accessor:
+      SourcesArray[CurrentLoadingArray].AccessorStride = std::stoi(Arguments["stride"]);
+    case Asset:
+      LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
+      break;
+    case Author:
+      CurrentTags.top().CurrentAsset->Author.append(value);
+      break;
+    case AuthoringTool:
+      CurrentTags.top().CurrentAsset->AuthoringTool.append(value);
+    case COLLADA:
+      LoadingTag.CurrentAsset = &Info;
+      break;
+    case Contributor:
+      LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
+      break;
+    case Coverage:
+      LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
+      break;
+    case Created:
+      CurrentTags.top().CurrentAsset->Created.append(value);
+      break;
+    case FloatArray:
+      {
+        std::string ArrayID = Arguments["id"];
+        if (ArrayID.length() > 0) CurrentLoadingArray = ArrayID;
 
-        if (!e.isStandalone && e.isFirst)
+        auto *array = &SourcesArray[CurrentLoadingArray].FloatArray;
+ 
+        std::string LengthString = Arguments["count"];
+        if (LengthString.length() > 0)
         {
-            CurrentTags.push(LoadingTag);
-            //std::cout << "Pushed, New size: " << CurrentTags.size() << std::endl;
+          int FloatCount = std::stoi(LengthString);
+          std::cout << "Array: " << CurrentLoadingArray << ", FloatCount: " << FloatCount << std::endl;
+          array->reserve(FloatCount);
         }
-    } else {
-        switch (LoadingTag.Name)
+
+        std::istringstream ss(value);
+        float number;
+        while (ss >> number)
+          array->push_back(number);
+
+        std::cout << "Loaded Float Array." << std::endl;
+      }
+      break;
+    case GeographicLocation:
+      CurrentTags.top().CurrentAsset->GeographicLocation.push_back(value);
+      break;
+    case Input:
+      {
+        std::string semantic = Arguments["semantic"];
+        if (semantic == "VERTEX")
         {
-        case Geometry:
-            CurrentModel->setModel(FloatVector);
-            break;
-        case P:
-            CurrentModel->TCount = FloatVector.size();
-            CurrentModel->CollisionVerts = FloatVector;
-            CurrentModel->author = "Me";
-            break;
-        default:
-            break;
-        };
-        CurrentTags.pop();
-        //std::cout << "Popped, New Size: " << CurrentTags.size() << std::endl;
+          std::string SourceStr = Arguments["source"];
+          std::string SourceID = SourceStr.substr(1,SourceStr.length()-1);
+          auto &Array = SourcesArray[SourceID].FloatArray;
+
+          std::cout << "Setting vertice from ID "<< SourceID << " to {" << std::flush;
+          for (auto &x : Array)
+            std::cout << x << ',';
+          std::cout << "}" << std::endl;
+
+          CurrentModel->setModel(Array);
+          CurrentModel->CollisionVerts = Array;
+          SourcesArray[SourceID].FloatArray.clear();
+        } else if (semantic == "POSITION")
+        {
+          std::string SourceStr = Arguments["source"];
+          std::string SourceID = SourceStr.substr(1,SourceStr.length()-1);
+          std::cout << "Copying " << VerticesID << " to " << SourceID << "." << std::endl;
+          SourcesArray[VerticesID] = SourcesArray[SourceID+"-array"];
+        }
+      }
+      break;
+    case InstanceVisualScene:
+      Info.Title.append(Arguments["url"]);
+      break;
+    case Keywords:
+      CurrentTags.top().CurrentAsset->Keywords.push_back(value);
+      break;
+    case Modified:
+      CurrentTags.top().CurrentAsset->Modified.append(value);
+      break;
+    case Geometry:
+      CurrentModel.reset(new Model());
+      models[Arguments["id"]] = CurrentModel;
+      CurrentModel->isEnclosed = false;
+      CurrentModel->name = Arguments["name"];
+      CurrentModel->shader = nullptr;
+    case Node:
+      ;
+      break;
+    case P:
+    {
+      uint number;
+      std::istringstream data(value);
+      int i = LoaderIT, InputCount = 3;
+      while (data >> number)
+      {
+        if (i % InputCount == 0)
+          UIntVector.push_back(number);
+        ++i;
+      }
+      LoaderIT = i;
+    }   break;
+    case Scene:
+      break;
+    case Vertices:
+      VerticesID = Arguments["id"];
+      break;
+    default:
+      // This is very important.
+      // If this is run, a COLLADA feature is being used that isn't supported
+      //std::cout << "Running default option for tag " << name << std::endl;
+      break;
+    };
+
+    if (!e.isStandalone && e.isFirst)
+    {
+      CurrentTags.push(LoadingTag);
+      //std::cout << "Pushed, New size: " << CurrentTags.size() << std::endl;
     }
+  } else { // ------------------------- Closing </example> --------------------------
+    switch (LoadingTag.Name)
+    {
+    case FloatArray:
+      //std::cout << "here" << std::endl << std::endl << std::endl << std::endl;
+      std::cout << "DEBUG Float Array Print: \"" << CurrentLoadingArray << "\" = <" << std::flush;
+      for (auto &x : SourcesArray[CurrentLoadingArray].FloatArray)
+        std::cout << x << ",";
+      std::cout << ">" << std::endl;
+      break;
+    case Geometry:
+      //CurrentModel->setModel(FloatVector);
+      break;
+    case Mesh:
+      SourcesArray.clear();
+      break;
+    case P:
+      std::cout << "P Loaded " << LoaderIT << " numbers" << std::endl;
+      LoaderIT = 0;
+
+      std::cout << "Setting indices to {" << std::flush;
+      for (auto &x : UIntVector)
+        std::cout << x << ',';
+      std::cout << "}" << std::endl;
+      CurrentModel->setIndices(UIntVector);
+      CurrentModel->CollisionIndices = UIntVector;
+      UIntVector.clear();
+      break;
+    case Triangles:
+      //CurrentModel->TCount = FloatVector.size();
+      //CurrentModel->CollisionVerts = FloatVector;
+      CurrentModel->author = "Me";
+      break;
+    default:
+      break;
+    };
+    CurrentTags.pop();
+    //std::cout << "Popped, New Size: " << CurrentTags.size() << std::endl;
+  }
 }
 
 std::map<std::string,COLLADAScene::TagOptions> COLLADAScene::TagLUT{

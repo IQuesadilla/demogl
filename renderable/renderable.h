@@ -9,7 +9,7 @@
 
 #include "imgui.h"
 
-#include "SDL.h"
+//#include "SDL.h"
 #include <SDL_opengl.h>
 #include <glm.hpp>
 #include <gtx/quaternion.hpp>

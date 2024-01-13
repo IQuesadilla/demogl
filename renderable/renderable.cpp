@@ -69,6 +69,9 @@ void Renderable::render(glm::mat4 view_projection)
         ImGui::SameLine();
         if (ImGui::Button("Destroy")) flags.QueueDestruction = true;
 
+        ImGui::Text("AABB Positive (%.3f,%.3f,%.3f)",posAABB.x,posAABB.y,posAABB.z);
+        ImGui::Text("AABB Negative (%.3f,%.3f,%.3f)",negAABB.x,negAABB.y,negAABB.z);
+
         ImGui::SliderFloat("Alpha", &alpha, 0.0f, 1.0f);
 
         ImGui::DragFloat("Spin X", &spinAxis.x, 0.01f);
@@ -86,6 +89,12 @@ void Renderable::render(glm::mat4 view_projection)
         ImGui::DragFloat("Scale X", &scale.x, 0.01f);
         ImGui::DragFloat("Scale Y", &scale.y, 0.01f);
         ImGui::DragFloat("Scale Z", &scale.z, 0.01f);
+/*
+        std::string PointsString;
+        for (auto &x : TransformedCollisionVerts)
+          PointsString.append("<" + std::to_string(x.x) + "," + std::to_string(x.y) + "," + std::to_string(x.z) + ">\n");
+        ImGui::Text("%s",PointsString.c_str());
+*/
         ImGui::PopID();
     }
 }

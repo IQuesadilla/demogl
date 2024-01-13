@@ -6,6 +6,7 @@ GLSceneLoader::GLSceneLoader()
   QueueMutex.lock();
   Polling = true;
   ShouldExit = false;
+  //_DefaultShader = DefaultShader;
   LoaderThread = std::thread(&GLSceneLoader::ThreadFunction, this);
 }
 
@@ -75,7 +76,10 @@ void GLSceneLoader::ThreadFunction()
       std::shared_ptr<GLScene> ToImport = nullptr;
       if (ExtensionString == ".dae")
       {
-        COLLADAScene *NewScene = new COLLADAScene(FilePath.string(),false);
+        COLLADAScene *SceneImport = new COLLADAScene(FilePath.string());
+        GLScene *NewScene = new GLScene();
+        NewScene->ImportScene(SceneImport);
+        delete SceneImport;
         ToImport.reset(NewScene);
       }
       else

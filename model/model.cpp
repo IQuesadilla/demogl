@@ -2,25 +2,27 @@
 
 Model::Model()
 {
-    Init();
+  Init();
 }
 
 Model::Model( Model *_new)
 {
-    *this = *_new;
+  *this = *_new;
 }
 
 Model::~Model()
 {
-    glBindVertexArray(0); // Unbind the VAO
-    glDeleteBuffers(1,&uvbuff);
-    glDeleteBuffers(1,&vertbuff);
-    glDeleteVertexArrays(1,&VAO);
+  glBindVertexArray(0); // Unbind the VAO
+  //glDeleteBuffers(1,&uvbuff);
+  //glDeleteBuffers(1,&vertbuff);
+  //glDeleteVertexArrays(1,&VAO);
 }
 
 void Model::GLInit()
 {
+  if (!_UnloadedModel) return;
   updateModel(_UnloadedModel->vertices);
+  updateIndices(_UnloadedModel->indices);
 
   delete _UnloadedModel;
   _UnloadedModel = nullptr;
@@ -51,11 +53,11 @@ void Model::draw()
 
 void Model::Init()
 {
-    vertbuff = 0;
-    ibuff = 0;
-    uvbuff = 0;
-    texbuff = 0;
-    VAO = 0;
+    //vertbuff = 0;
+    //ibuff = 0;
+    //uvbuff = 0;
+    //texbuff = 0;
+    //VAO = 0;
     shader = nullptr;
     _UnloadedModel = new UnloadedModel;
 }
@@ -79,7 +81,7 @@ void Model::setModel(std::vector<glm::vec3> vertData)
 
 void Model::updateModel(std::vector<glm::vec3> vertData)
 {
-    if (!VAO) glGenVertexArrays(1,&VAO);
+    if (!VAO) VAO.Generate();//glGenVertexArrays(1,&VAO);
     glBindVertexArray(VAO);
 
     //SDL_Surface *icon = SDL_LoadBMP( IMGPath.c_str() );
@@ -107,8 +109,9 @@ void Model::updateModel(std::vector<glm::vec3> vertData)
 
     if (vertbuff == 0)
     {
+      vertbuff.Generate();
         // Generate a Vertex Buffer Object to represent the cube's vertices
-        glGenBuffers(1,&vertbuff);
+        //glGenBuffers(1,&vertbuff);
         // Set vertices to location 0 - GLSL: layout(location = 0) in vec3 aPos;
         glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
         glVertexAttribPointer(
@@ -127,26 +130,41 @@ void Model::updateModel(std::vector<glm::vec3> vertData)
         glBindBuffer(GL_ARRAY_BUFFER, vertbuff);
         glBufferData(GL_ARRAY_BUFFER, vertData.size() * sizeof(glm::vec3), vertData.data(), GL_STATIC_DRAW);
     }
+
+  if (!TCount) TCount = vertData.size() / 3;
 }
 
 void Model::setIndices(std::vector<GLuint> indexData)
 {
-    if (!VAO) glGenVertexArrays(1,&VAO);
+  if (_UnloadedModel)
+    _UnloadedModel->indices = indexData;
+  else
+    updateIndices(indexData);
+}
+
+void Model::updateIndices(std::vector<GLuint> indexData)
+{
+    if (!VAO) VAO.Generate();//glGenVertexArrays(1,&VAO);
     glBindVertexArray(VAO);
 
-    if (!ibuff) glGenBuffers(1, &ibuff);
+    if (!ibuff) ibuff.Generate();//glGenBuffers(1, &ibuff);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuff);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexData.size() * sizeof(GLuint), indexData.data(), GL_STATIC_DRAW);
+
+  std::cout << "=========== IBUFF: " << ibuff << std::endl;
+
+  TCount = indexData.size() / 3;
 }
 
 void Model::setTex(cv::Mat image, std::vector<GLfloat> uvData)
 {
-    if (!VAO) glGenVertexArrays(1,&VAO);
+    if (!VAO) VAO.Generate();//glGenVertexArrays(1,&VAO);
     glBindVertexArray(VAO);
 
     if (texbuff == 0)
     {
-        glGenTextures(1, &texbuff);
+        texbuff.Generate();
+        //glGenTextures(1, &texbuff);
         glBindTexture(GL_TEXTURE_2D, texbuff);
 
         if ( doGenerateMipmap )
@@ -165,7 +183,8 @@ void Model::setTex(cv::Mat image, std::vector<GLfloat> uvData)
 
     if (uvbuff == 0)
     {
-        glGenBuffers(1, &uvbuff);
+        uvbuff.Generate();
+        //glGenBuffers(1, &uvbuff);
         // Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
         glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
         glVertexAttribPointer(
@@ -220,7 +239,8 @@ void Model::setColors(std::vector<GLfloat> colorData)
 {
     if (colorbuff == 0)
     {
-        glGenBuffers(1, &colorbuff);
+        colorbuff.Generate();
+        //glGenBuffers(1, &colorbuff);
         // Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
         glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
         glVertexAttribPointer(
