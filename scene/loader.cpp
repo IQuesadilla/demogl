@@ -66,7 +66,7 @@ void GLSceneLoader::ThreadFunction()
       std::cout << "File Path: " << FilePath << std::endl;
 
       //std::filesystem::path FilePath = myFileBrowser.GetSelected();
-      std::string RelPathString = std::filesystem::relative(FilePath,std::filesystem::current_path());
+      std::string RelPathString = std::filesystem::relative(FilePath,std::filesystem::current_path()).string();
       std::string ExtensionString = FilePath.extension().string();
 
       //std::cout << "File Relative Path: " << RelPathString << std::endl;
