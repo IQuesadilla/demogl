@@ -11,9 +11,10 @@
 #include <string_view>
 #include <vector>
 
-#ifndef IMGUI_VERSION
-#   error "include imgui.h before this header"
-#endif
+//#ifndef IMGUI_VERSION
+//#   error "include imgui.h before this header"
+//#endif
+#include "imgui.h"
 
 using ImGuiFileBrowserFlags = int;
 

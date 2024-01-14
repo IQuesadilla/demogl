@@ -232,19 +232,24 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
 
   if (CurrentDebugSceneTab == SceneEditor)
   {
-    ImGui::TextUnformatted("New: ");
-    for (auto &model : models)
-    {
-      ImGui::SameLine();
-      if ( ImGui::Button( model.first.c_str() ) )
-      {
-        std::shared_ptr<Renderable> newnode(new Renderable( model.second ));
-        renderables[newnode] = std::vector<std::shared_ptr<Renderable>>();
-        SceneBase.push_back(newnode);
-      }
-    }
-
+    if (ImGui::Button("New Object:"))
+      ImGui::OpenPopup("NewModelPopup");
+    ImGui::SameLine();
     ImGui::Text("Object Count: %zu",renderables.size());
+
+    if (ImGui::BeginPopup("NewModelPopup"))
+    {
+      for (auto &model : models)
+      {
+        if ( ImGui::Selectable( model.first.c_str() ) )
+        {
+          std::shared_ptr<Renderable> newnode(new Renderable( model.second ));
+          renderables[newnode] = std::vector<std::shared_ptr<Renderable>>();
+          SceneBase.push_back(newnode);
+        }
+      }
+      ImGui::EndPopup();
+    }
   }
 
   int CollisionCount = 0;

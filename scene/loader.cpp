@@ -66,6 +66,7 @@ void GLSceneLoader::ThreadFunction()
 
     while (FileQueue.size() > 0)
     {
+      std::chrono::steady_clock::time_point LoadStart = std::chrono::steady_clock::now();
       //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
       std::filesystem::path FilePath = FileQueue.front();
       FileQueue.pop();
@@ -88,6 +89,9 @@ void GLSceneLoader::ThreadFunction()
         NewScene->ImportScene(SceneImport);
         delete SceneImport;
         ToImport.reset(NewScene);
+        std::cout << FilePath << " import time: " <<
+          std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - LoadStart).count()
+          << " ms" << std::endl;
       }
       else
       {

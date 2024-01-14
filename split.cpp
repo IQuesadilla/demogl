@@ -335,6 +335,42 @@ public:
                SelectedWorld = it.second;
           ImGui::EndMenu();
         }
+
+        if (ImGui::BeginMenu("Scene Library"))
+        {
+          static std::string ToImport = "<none>";
+          if (ImGui::Button("Select...")) ImGui::OpenPopup("SceneImportPopup");
+          ImGui::SameLine();
+          ImGui::Text("%s",ToImport.c_str());
+
+          if (ImGui::BeginPopup("SceneImportPopup"))
+          {
+            for (auto &x : SceneLibrary)
+              if (x.second != world && ImGui::Selectable(x.first.c_str())) ToImport = x.first;
+            ImGui::EndPopup();
+          }
+
+          bool Disable = false;
+          if (SceneLibrary.find(ToImport) == SceneLibrary.end() || SceneLibrary[ToImport] == world) Disable = true;
+          
+          if (ImGui::Button("New Empty"))
+          {
+            std::string NewEmptyName = "Empty0";
+            for (int i = 0;
+              SceneLibrary.find(NewEmptyName) != SceneLibrary.end();
+              NewEmptyName = "Empty" + std::to_string(++i));
+            //std::string NewEmptyName = "Empty" + std::to_string(i);
+            SceneLibrary[NewEmptyName].reset(new GLScene());
+          }
+          if (Disable) ImGui::BeginDisabled();
+          if (ImGui::Button("Import Models")) world->ImportModelsFrom(SceneLibrary[ToImport].get());
+          if (ImGui::Button("Import All")) world->ImportScene(SceneLibrary[ToImport].get());
+          if (ImGui::Button("Import All & Erase"))
+            { world->ImportScene(SceneLibrary[ToImport].get()); SceneLibrary.erase(ToImport); }
+          if (ImGui::Button("Erase")) SceneLibrary.erase(ToImport);
+          if (Disable) ImGui::EndDisabled();
+          ImGui::EndMenu();
+        }
         ImGui::EndMenu();
       }
       ImGui::EndMainMenuBar();
