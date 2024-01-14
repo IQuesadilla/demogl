@@ -3,8 +3,8 @@
 
 GLSceneLoader::GLSceneLoader()
 {
-  QueueMutex.lock();
-  Polling = true;
+  //QueueMutex.lock();
+  //Polling = true;
   ShouldExit = false;
   //_DefaultShader = DefaultShader;
   LoaderThread = std::thread(&GLSceneLoader::ThreadFunction, this);
@@ -12,57 +12,64 @@ GLSceneLoader::GLSceneLoader()
 
 GLSceneLoader::~GLSceneLoader()
 {
-  ShouldExit = true;
-  QueueMutex.unlock();
+  {
+    std::cout << "Attemping lock to kill" << std::endl;
+    std::lock_guard<std::mutex> lock(QueueMutex);
+    ShouldExit = true;
+    Condition.notify_one();
+  }
   LoaderThread.join();
 }
 
-bool GLSceneLoader::QueueFile(std::filesystem::path FilePath)
+void GLSceneLoader::QueueFile(std::filesystem::path FilePath)
 {
-  std::cout << "Queueing file" << std::endl;
-  if (Polling || QueueMutex.try_lock())
-  {
-    FileQueue.push(FilePath);
-    QueueMutex.unlock();
-    std::cout << "Successfully Queued File" << std::endl;
-    return true;
-  }
-  else return false;
+  std::cout << "Queueing file: " << FilePath.string() << std::endl;
+  PreFileQueue.push(FilePath);
 }
 
 std::pair<std::string,std::shared_ptr<GLScene>>
   GLSceneLoader::Retrieve()
 {
-  if (SceneQueue.size() == 0 || !SceneMutex.try_lock()) return std::make_pair("",nullptr);
+  std::unique_lock<std::mutex> QueueLock(QueueMutex, std::try_to_lock);
+  if (QueueLock && !PreFileQueue.empty())//QueueMutex.try_lock())
+  {
+    auto FilePath = PreFileQueue.front();
+    FileQueue.push(FilePath);
+    PreFileQueue.pop();
+    Condition.notify_one();
+    std::cout << "Successfully Queued File: " << FilePath.string() << std::endl;
+  }
 
-  auto to_return = SceneQueue.front();
-  SceneQueue.pop();
-  SceneMutex.unlock();
-  return to_return;
+  std::unique_lock<std::mutex> SceneLock(SceneMutex, std::try_to_lock);
+  if (SceneLock && !SceneQueue.empty())
+  {
+    auto to_return = SceneQueue.front();
+    SceneQueue.pop();
+    return to_return;
+  } else return std::make_pair("",nullptr);
 }
 
 bool GLSceneLoader::isLoading()
 {
-  return !Polling;
+  return true;//!Polling;
 }
 
 void GLSceneLoader::ThreadFunction()
 {
-  while (!ShouldExit)
+  while (true)
   {
-    std::cout << "Attepting lock" << std::endl;
-    QueueMutex.lock();
-    if (FileQueue.size() == 0)
+    std::unique_lock<std::mutex> QueueLock(QueueMutex);
+    std::cout << "Sleeping until triggered" << std::endl;
+    Condition.wait(QueueLock, [this]{ return !FileQueue.empty() || ShouldExit; });
+    std::cout << "--> Triggered" << std::endl;
+    if (ShouldExit) return;
+
+    while (FileQueue.size() > 0)
     {
-      Polling = true;
-    }
-    else 
-    {
-      Polling = false;
       //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
       std::filesystem::path FilePath = FileQueue.front();
       FileQueue.pop();
-      QueueMutex.unlock();
+      QueueLock.unlock();
       std::cout << "File Path: " << FilePath << std::endl;
 
       //std::filesystem::path FilePath = myFileBrowser.GetSelected();
@@ -92,6 +99,7 @@ void GLSceneLoader::ThreadFunction()
       SceneQueue.push(std::make_pair(RelPathString,ToImport));
       //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
       SceneMutex.unlock();
+      QueueLock.lock();
     }
   }
 }
