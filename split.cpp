@@ -353,21 +353,28 @@ public:
           bool Disable = false;
           if (SceneLibrary.find(ToImport) == SceneLibrary.end() || SceneLibrary[ToImport] == world) Disable = true;
           
-          if (ImGui::Button("New Empty"))
+          if (ImGui::MenuItem("New Empty"))
           {
             std::string NewEmptyName = "Empty0";
             for (int i = 0;
               SceneLibrary.find(NewEmptyName) != SceneLibrary.end();
               NewEmptyName = "Empty" + std::to_string(++i));
             //std::string NewEmptyName = "Empty" + std::to_string(i);
-            SceneLibrary[NewEmptyName].reset(new GLScene());
+            std::shared_ptr<GLScene> NewScene;
+            NewScene.reset(new GLScene());
+            SceneLibrary.emplace(NewEmptyName,NewScene);
+            NewScene->ImportWorldOptions(
+              DefaultSkyboxVAO, DefaultAABBVAO,
+              DefaultSkyboxTex,
+              DefaultSkyboxShader, DefaultShader);
+            NewScene->GLInit();
           }
           if (Disable) ImGui::BeginDisabled();
-          if (ImGui::Button("Import Models")) world->ImportModelsFrom(SceneLibrary[ToImport].get());
-          if (ImGui::Button("Import All")) world->ImportScene(SceneLibrary[ToImport].get());
-          if (ImGui::Button("Import All & Erase"))
+          if (ImGui::MenuItem("Import Models")) world->ImportModelsFrom(SceneLibrary[ToImport].get());
+          if (ImGui::MenuItem("Import All")) world->ImportScene(SceneLibrary[ToImport].get());
+          if (ImGui::MenuItem("Import All & Erase"))
             { world->ImportScene(SceneLibrary[ToImport].get()); SceneLibrary.erase(ToImport); }
-          if (ImGui::Button("Erase")) SceneLibrary.erase(ToImport);
+          if (ImGui::MenuItem("Erase")) SceneLibrary.erase(ToImport);
           if (Disable) ImGui::EndDisabled();
           ImGui::EndMenu();
         }

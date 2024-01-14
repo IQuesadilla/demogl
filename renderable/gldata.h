@@ -31,7 +31,6 @@ public:
   ~_SharedVAO();
   GLuint _VAL;
 };
-template class _SharedUINT<_SharedVAO>;
 typedef _SharedUINT<_SharedVAO> SharedVAO;
 
 class _SharedVBO
@@ -41,7 +40,6 @@ public:
   ~_SharedVBO();
   GLuint _VAL;
 };
-template class _SharedUINT<_SharedVBO>;
 typedef _SharedUINT<_SharedVBO> SharedVBO;
 
 class _SharedTex
@@ -51,7 +49,6 @@ public:
   ~_SharedTex();
   GLuint _VAL;
 };
-template class _SharedUINT<_SharedTex>;
 typedef _SharedUINT<_SharedTex> SharedTex;
 
 //typedef std::shared_ptr<_SharedVAO> SharedVAO;
