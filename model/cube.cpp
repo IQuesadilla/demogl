@@ -128,10 +128,11 @@ myCube::myCube() : Model()
     setIndices(CubeIndices);
     setModel(vertDataVec);
     setTex(cv::imread("assets/rubix.png"), uvDataVec);
+    GLInit();
 
-    TCount = 12;
+    //TCount = 12;
     isEnclosed = true;
-    name = "cube";
+    Info.Title = "cube";
 }
 
 myCube::myCube(myCube *_new)

@@ -9,6 +9,14 @@
 
 #include "assets/rawcube.h"
 
+void ImPrintMat(glm::mat4 matrix)
+{
+  ImGui::Text("%6.3f,%6.3f,%6.3f,%6.3f",matrix[0][0],matrix[1][0],matrix[2][0],matrix[3][0]);
+  ImGui::Text("%6.3f,%6.3f,%6.3f,%6.3f",matrix[0][1],matrix[1][1],matrix[2][1],matrix[3][1]);
+  ImGui::Text("%6.3f,%6.3f,%6.3f,%6.3f",matrix[0][2],matrix[1][2],matrix[2][2],matrix[3][2]);
+  ImGui::Text("%6.3f,%6.3f,%6.3f,%6.3f",matrix[0][3],matrix[1][3],matrix[2][3],matrix[3][3]);
+}
+
 GLScene::GLScene()
 {
   Init();
@@ -27,6 +35,7 @@ void GLScene::Init()
   //AABBVBO = 0;
   DefaultShader = nullptr;
   SkyboxShader = nullptr;
+  Info.ImpliedTransform = glm::mat4(1.f);
 }
 
 void GLScene::ImportWorldOptions(
@@ -186,6 +195,8 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
     ImGui::Text("AABB VAO: %d", (int)AABBVAO);
     ImGui::Text("AABB VBO: %d", (int)AABBVBO);
     ImGui::Text("AABB Shader ID: %p", DefaultShader.get());
+    ImGui::Text("Default World Transform:");
+    ImPrintMat(Info.ImpliedTransform);
     ImGui::EndChild();
   }
 
@@ -197,7 +208,8 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
     {
       //ImGui::BeginChild("ModelInfoPane");
       ImGui::SeparatorText(model.first.c_str());
-      ImGui::Text("Name: \"%s\"", model.second->name.c_str());
+      ImGui::Text("Name: \"%s\"", model.second->Info.Title.c_str());
+      ImGui::Text("Model ID: %p", model.second.get());
       ImGui::Text("Visual Triangle Count: %d", model.second->TCount);
       ImGui::Text("Hitbox Vertex Count: %zu", model.second->CollisionVerts.size() / 3);
       ImGui::Text("Hitbox Index Count: %zu", model.second->CollisionIndices.size()); 
@@ -277,7 +289,7 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
     ImGui::PushID(node.get());
 
     glm::mat4 ParentMatrix;
-    if (CurrentParents.size() == 0) ParentMatrix = glm::mat4(1.0f);
+    if (CurrentParents.size() == 0) ParentMatrix = Info.ImpliedTransform;
     else ParentMatrix = CurrentParents.top()->_modelmatrix;
 
     node->AnimationUpdate(deltaTime, ParentMatrix);
@@ -337,13 +349,13 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
       {
         if (OpenedStack.top())
         {
-          bool open = ImGui::TreeNodeEx(node->_model->name.c_str(), tree_node_flags);
+          bool open = ImGui::TreeNodeEx(node->_model->Info.Title.c_str(), tree_node_flags);
           OpenedStack.push(open);
         }
       }
       else
       {
-        ImGui::TreeNodeEx(node->_model->name.c_str(), tree_node_flags | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen );
+        ImGui::TreeNodeEx(node->_model->Info.Title.c_str(), tree_node_flags | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen );
       }
 
       if (ImGui::BeginDragDropTarget())
@@ -436,7 +448,13 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
   for (auto &cube : renderables)
   {
     if (DoSelectionDraw && cube.first->flags.isSelected)
+    {
       DebugDrawAABB(cube.first, view_projection, camera->Position);
+      //ImGui::Text("Implied Transform:");
+      //ImPrintMat(cube.first->Info.ImpliedTransform);
+      //ImGui::Text("Model Matrix:");
+      //ImPrintMat(cube.first->_modelmatrix);
+    }
     else cube.first->flags.isSelected = false;
  
     if (cube.first->alpha == 1.0f)
@@ -520,7 +538,7 @@ void GLScene::UpdateSkybox(cv::Mat skybox)
     memcpy(vertDataVec.data(),vertData,sizeof(vertData)); 
 
     for (auto &v : vertDataVec)
-      v *= 50.0f;
+      v *= 500.0f;
 
     glBindBuffer(GL_ARRAY_BUFFER, SkyboxVBO);
     glBufferData(GL_ARRAY_BUFFER, vertDataVec.size() * sizeof(GLfloat), vertDataVec.data(), GL_STATIC_DRAW);
@@ -578,10 +596,29 @@ GLScene::~GLScene()
 void GLScene::ImportScene(GLScene *scene)
 {
   ImportModelsFrom(scene);
-  ImportRenderablesFrom(scene);
+  if (SceneBase.size() > 0)
+  {
+    std::shared_ptr<Renderable> TopNode;
+    auto ModelIT = models.find("blank");
+    std::shared_ptr<Model> ModelPTR;
+    if (ModelIT == models.end())
+    {
+      ModelPTR.reset(new Model());
+      models.emplace("blank",ModelPTR);
+    } else ModelPTR = ModelIT->second;
+    TopNode.reset(new Renderable(ModelPTR));
+    std::vector<std::shared_ptr<Renderable>> ChildVector;
+    ImportRenderablesFromInto(scene,&ChildVector);
+    renderables.emplace(TopNode,ChildVector);
+    SceneBase.push_back(TopNode);
+  }
+  else ImportRenderablesFrom(scene);
   shaders.insert(scene->shaders.begin(),scene->shaders.end());
   //AABBVAO = scene->AABBVAO;
   //SkyboxVAO = scene->SkyboxVAO;
+  if (Info.Author.length() > 0) Info.Author.append(" ; ");
+  Info.Author.append(scene->Info.Author);
+  Info.ImpliedTransform *= scene->Info.ImpliedTransform;
   std::cout << "Successfully Imported Scene" << std::endl;
 }
 

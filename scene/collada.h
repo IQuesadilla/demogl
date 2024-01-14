@@ -19,7 +19,10 @@ public:
   std::string CurrentLoadingArray; // Index for SourcesArray
   std::string POSITIONSemantic; //
   std::string VerticesID;
-  int LoaderIT;
+  int LoaderIT, TrianglesInputCount, ClaimedTriCount;
+
+  bool isInsideTriangles;
+  AssetData *CurrentAsset;
 
   struct SourceTag {
     std::vector<float> FloatArray;
@@ -30,6 +33,7 @@ public:
   std::vector<float> FloatVector; // For loading 
   std::vector<uint> UIntVector; // For loading indices
   std::shared_ptr<Model> CurrentModel;
+  std::stack<std::shared_ptr<Renderable>> CurrentNode;
 
   enum TagOptions // Every tag, per the COLLADA v1.5 spec
   {
@@ -360,7 +364,7 @@ public:
         Reflective,
         Reflectivity,
         Render,
-        Renderable,
+        RRenderable,
         RescaleNormalEnable,
         Restitution,
         Revision,
@@ -485,12 +489,12 @@ public:
         Znear,
   };
 
-  struct Tag
-  {
-    TagOptions Name;
-    AssetData *CurrentAsset;
-  };
-  std::stack<Tag> CurrentTags;
+  //struct Tag
+  //{
+  //  TagOptions Name;
+  //  AssetData *CurrentAsset;
+  //};
+  //std::stack<Tag> CurrentTags;
 
   static std::map<std::string,TagOptions> TagLUT;
 };

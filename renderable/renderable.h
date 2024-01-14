@@ -15,6 +15,7 @@
 #include <gtx/quaternion.hpp>
 
 #include <memory>
+#include <iomanip>
 
 #include "camera.h"
 #include "shader.h"
@@ -22,9 +23,13 @@
 class Renderable
 {
 public:
+    Renderable();
     Renderable(std::shared_ptr<Model> model);
     Renderable( Renderable *_new );
     ~Renderable();
+
+    void Init();
+    void setModel(std::shared_ptr<Model> model);
 
     void render(glm::mat4 view_projection);
     float distance(glm::vec3 pos);
@@ -58,6 +63,7 @@ public:
     glm::vec3 trans, rotAxis, scale;
     glm::vec3 FrameTranslate, FrameRotation, spinAxis;
     float alpha;
+    AssetData Info;
 };
 
 #endif

@@ -47,19 +47,28 @@ void Model::draw()
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::cout << "Model \"" << name << "\" Error:" << err << std::endl;
+        std::cout << "Model \"" << Info.Title << "\" Error:" << err << std::endl;
     }
 }
 
 void Model::Init()
 {
-    //vertbuff = 0;
-    //ibuff = 0;
-    //uvbuff = 0;
-    //texbuff = 0;
-    //VAO = 0;
-    shader = nullptr;
-    _UnloadedModel = new UnloadedModel;
+  //vertbuff = 0;
+  //ibuff = 0;
+  //uvbuff = 0;
+  //texbuff = 0;
+  //VAO = 0;
+  shader = nullptr;
+  _UnloadedModel = new UnloadedModel;
+  Info.ImpliedTransform = glm::mat4(1.f);
+  doGenerateMipmap = false;
+
+  CollisionVerts = {0.0f,0.0f,0.0f};
+
+  TCount = 0;
+  isEnclosed = false;
+  Info.Title = "blank";
+  std::cout << "here " << this << std::endl;
 }
 
 void Model::setModel(std::vector<GLfloat> vertData)
@@ -151,7 +160,7 @@ void Model::updateIndices(std::vector<GLuint> indexData)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuff);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexData.size() * sizeof(GLuint), indexData.data(), GL_STATIC_DRAW);
 
-  std::cout << "=========== IBUFF: " << ibuff << std::endl;
+  //std::cout << "=========== IBUFF: " << ibuff << std::endl;
 
   TCount = indexData.size() / 3;
 }
@@ -227,7 +236,7 @@ void Model::setTex(cv::Mat image, std::vector<GLfloat> uvData)
 
         GLenum err = glGetError();
         if (err != GL_NO_ERROR) {
-            std::cout << "Model Error:" << err << std::endl;
+            std::cout << "Model Error: " << err << std::endl;
         }
 
         if ( doGenerateMipmap )

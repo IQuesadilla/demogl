@@ -3,8 +3,12 @@
 COLLADAScene::COLLADAScene(std::string path) : GLScene(), basicxml()
 {
   LoaderIT = 0;
-  ifs.open(path);
+  isInsideTriangles = false;
+  //TrianglesInputCount = 0;
 
+  std::cout << "COLLADAScene Size: " << sizeof(COLLADAScene) << std::endl;
+
+  ifs.open(path);
   if (ifs.is_open())
   {
     basepath = path;
@@ -33,10 +37,10 @@ int COLLADAScene::loadcallback(char *buffer, int buffsize)
 
 void COLLADAScene::parsecallback(element e)
 {
-  Tag LoadingTag;
+  TagOptions LoadingTag;
   std::string name(e.name);//,e.namelen);
   std::string value(e.value);//,e.valuelen);
-  LoadingTag.Name = TagLUT[name];
+  LoadingTag = TagLUT[name];
 
   //std::cout << "--> Name: " << name << ", Enum: " << LoadingTag.Name << std::endl;
   //if (e.valuelen > 0) std::cout << "--> Value: {" << value << "}" << std::endl;
@@ -46,29 +50,29 @@ void COLLADAScene::parsecallback(element e)
     for (auto arg = e.atts; arg != nullptr; arg = arg->next)
       Arguments[std::string(arg->name)/*,arg->namelen)*/] = std::string(arg->value);//,arg->valuelen);
 
-    switch (LoadingTag.Name)
+    switch (LoadingTag)
     {
     case Accessor:
       SourcesArray[CurrentLoadingArray].AccessorStride = std::stoi(Arguments["stride"]);
     case Asset:
-      LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
+      //LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
       break;
     case Author:
-      CurrentTags.top().CurrentAsset->Author.append(value);
+      CurrentAsset->Author.append(value);
       break;
     case AuthoringTool:
-      CurrentTags.top().CurrentAsset->AuthoringTool.append(value);
+      CurrentAsset->AuthoringTool.append(value);
     case COLLADA:
-      LoadingTag.CurrentAsset = &Info;
+      CurrentAsset = &Info;
       break;
     case Contributor:
-      LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
+      //LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
       break;
     case Coverage:
-      LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
+      //LoadingTag.CurrentAsset = CurrentTags.top().CurrentAsset;
       break;
     case Created:
-      CurrentTags.top().CurrentAsset->Created.append(value);
+      CurrentAsset->Created.append(value);
       break;
     case FloatArray:
       {
@@ -88,16 +92,27 @@ void COLLADAScene::parsecallback(element e)
         std::istringstream ss(value);
         float number;
         while (ss >> number)
+        {
+          ++LoaderIT;
           array->push_back(number);
-
-        std::cout << "Loaded Float Array." << std::endl;
+        }
+        //std::cout << "Loaded Float Array." << std::endl;
       }
       break;
     case GeographicLocation:
-      CurrentTags.top().CurrentAsset->GeographicLocation.push_back(value);
+      CurrentAsset->GeographicLocation.push_back(value);
       break;
+    case Geometry:
+      CurrentModel.reset(new Model());
+      models[Arguments["id"]] = CurrentModel;
+      CurrentAsset = &CurrentModel->Info;
+      CurrentModel->isEnclosed = false;
+      CurrentModel->Info.Title = Arguments["name"];
+      CurrentModel->shader = nullptr;
     case Input:
       {
+        if (isInsideTriangles) ++TrianglesInputCount;
+        //std::cout << "TrianglesInputCount: " << TrianglesInputCount << std::endl;
         std::string semantic = Arguments["semantic"];
         if (semantic == "VERTEX")
         {
@@ -105,10 +120,10 @@ void COLLADAScene::parsecallback(element e)
           std::string SourceID = SourceStr.substr(1,SourceStr.length()-1);
           auto &Array = SourcesArray[SourceID].FloatArray;
 
-          std::cout << "Setting vertice from ID "<< SourceID << " to {" << std::flush;
-          for (auto &x : Array)
-            std::cout << x << ',';
-          std::cout << "}" << std::endl;
+          //std::cout << "Setting vertice from ID "<< SourceID << " to {" << std::flush;
+          //for (auto &x : Array)
+          //  std::cout << x << ',';
+          //std::cout << "}" << std::endl;
 
           CurrentModel->setModel(Array);
           CurrentModel->CollisionVerts = Array;
@@ -116,47 +131,95 @@ void COLLADAScene::parsecallback(element e)
         } else if (semantic == "POSITION")
         {
           std::string SourceStr = Arguments["source"];
-          std::string SourceID = SourceStr.substr(1,SourceStr.length()-1);
+          std::string SourceID = SourceStr.substr(1,SourceStr.length()-1)+"-array";
           std::cout << "Copying " << VerticesID << " to " << SourceID << "." << std::endl;
-          SourcesArray[VerticesID] = SourcesArray[SourceID+"-array"];
+          SourcesArray[VerticesID] = SourcesArray[SourceID];
         }
       }
       break;
+    case InstanceGeometry:
+    {
+      auto NewNode = CurrentNode.top();
+      std::string URLStr = Arguments["url"];
+      std::string ModelID = URLStr.substr(1,URLStr.length()-1); 
+      auto NewNodeModel = models[ModelID];
+      NewNode->setModel(NewNodeModel);
+    } break;
     case InstanceVisualScene:
       Info.Title.append(Arguments["url"]);
       break;
     case Keywords:
-      CurrentTags.top().CurrentAsset->Keywords.push_back(value);
+      CurrentAsset->Keywords.push_back(value);
       break;
     case Modified:
-      CurrentTags.top().CurrentAsset->Modified.append(value);
+      CurrentAsset->Modified.append(value);
       break;
-    case Geometry:
-      CurrentModel.reset(new Model());
-      models[Arguments["id"]] = CurrentModel;
-      CurrentModel->isEnclosed = false;
-      CurrentModel->name = Arguments["name"];
-      CurrentModel->shader = nullptr;
+    case Matrix:
+      if (Arguments["sid"] == "transform")
+      {
+        std::cout << "Transform: " << value << std::endl;
+        int i = 0;
+        float number;
+        glm::mat4 transform;
+        std::stringstream ss(value);
+        while (ss >> number)
+        {
+          if (glm::abs(number) < 0.001f) number = 0.f;
+          transform[i%4][i/4] = number;
+          //std::cout << "Number [" << i/4 << "][" << i%4 << "] = " << number << std::endl;
+          ++i;
+        }
+        CurrentNode.top()->Info.ImpliedTransform = transform;
+      } break;
     case Node:
-      ;
-      break;
+    {
+      std::shared_ptr<Renderable> NewNode;
+      auto ModelIT = models.find("blank");
+      std::shared_ptr<Model> ModelPTR;
+      if (ModelIT == models.end())
+      {
+        ModelPTR.reset(new Model());
+        models.emplace("blank",ModelPTR);
+      } else ModelPTR = ModelIT->second;
+      NewNode.reset(new Renderable(ModelPTR));
+      auto ParentNode = CurrentNode.top();
+      if (ParentNode) renderables[ParentNode].push_back(NewNode);
+      else SceneBase.push_back(NewNode);
+      CurrentNode.push(NewNode);
+      renderables.emplace(NewNode,std::vector<std::shared_ptr<Renderable>>());
+    } break;
     case P:
     {
       uint number;
       std::istringstream data(value);
-      int i = LoaderIT, InputCount = 3;
+      //int i = LoaderIT;
       while (data >> number)
       {
-        if (i % InputCount == 0)
+        if (LoaderIT % TrianglesInputCount == 0)
           UIntVector.push_back(number);
-        ++i;
+        ++LoaderIT;
       }
-      LoaderIT = i;
-    }   break;
+      //LoaderIT = i;
+    } break;
     case Scene:
+      break;
+    case Triangles:
+    {
+      isInsideTriangles = true;
+      TrianglesInputCount = 0;
+      ClaimedTriCount = std::stoi(Arguments["count"]);
+      std::cout << "Clamed Triangle Count: " << ClaimedTriCount << std::endl;
+    } break;
+    case UpAxis:
+      std::cout << "World UpAxis: \"" << value << "\", Author: " << CurrentAsset->Author << std::endl;
+      if (value == "Z_UP") CurrentAsset->ImpliedTransform = glm::mat4(1.f) * glm::toMat4(glm::quat(glm::radians(glm::vec3(-90.f,0.f,0.f))));
       break;
     case Vertices:
       VerticesID = Arguments["id"];
+      break;
+    case VisualScene:
+      for (;CurrentNode.size();CurrentNode.pop());
+      CurrentNode.push(nullptr);
       break;
     default:
       // This is very important.
@@ -165,20 +228,22 @@ void COLLADAScene::parsecallback(element e)
       break;
     };
 
-    if (!e.isStandalone && e.isFirst)
+    /*if (!e.isStandalone && e.isFirst)
     {
-      CurrentTags.push(LoadingTag);
+      //CurrentTags.push(LoadingTag);
       //std::cout << "Pushed, New size: " << CurrentTags.size() << std::endl;
-    }
+    }*/
   } else { // ------------------------- Closing </example> --------------------------
-    switch (LoadingTag.Name)
+    switch (LoadingTag)
     {
     case FloatArray:
       //std::cout << "here" << std::endl << std::endl << std::endl << std::endl;
-      std::cout << "DEBUG Float Array Print: \"" << CurrentLoadingArray << "\" = <" << std::flush;
-      for (auto &x : SourcesArray[CurrentLoadingArray].FloatArray)
-        std::cout << x << ",";
-      std::cout << ">" << std::endl;
+      //std::cout << "DEBUG Float Array Print: \"" << CurrentLoadingArray << "\" = <" << std::flush;
+      //for (auto &x : SourcesArray[CurrentLoadingArray].FloatArray)
+      //  std::cout << x << ",";
+      //std::cout << ">" << std::endl;
+      std::cout << "Successfully loaded FloatArray \"" << CurrentLoadingArray << "\", Actual Size: " << LoaderIT << std::endl;
+      //LoaderIT = 0;
       break;
     case Geometry:
       //CurrentModel->setModel(FloatVector);
@@ -186,14 +251,17 @@ void COLLADAScene::parsecallback(element e)
     case Mesh:
       SourcesArray.clear();
       break;
+    case Node:
+      CurrentNode.pop();
+      break;
     case P:
       std::cout << "P Loaded " << LoaderIT << " numbers" << std::endl;
-      LoaderIT = 0;
+      //LoaderIT = 0;
 
-      std::cout << "Setting indices to {" << std::flush;
-      for (auto &x : UIntVector)
-        std::cout << x << ',';
-      std::cout << "}" << std::endl;
+      //std::cout << "Setting indices to {" << std::flush;
+      //for (auto &x : UIntVector)
+      //  std::cout << x << ',';
+      //std::cout << "}" << std::endl;
       CurrentModel->setIndices(UIntVector);
       CurrentModel->CollisionIndices = UIntVector;
       UIntVector.clear();
@@ -201,12 +269,16 @@ void COLLADAScene::parsecallback(element e)
     case Triangles:
       //CurrentModel->TCount = FloatVector.size();
       //CurrentModel->CollisionVerts = FloatVector;
-      CurrentModel->author = "Me";
+      std::cout << "Loadeded Triangles, Implied P Count: " << ClaimedTriCount*TrianglesInputCount*3 << std::endl;
+      CurrentModel->Info.Author = "Me";
+      //TrianglesInputCount = 0;5
+      isInsideTriangles = false;
       break;
     default:
       break;
     };
-    CurrentTags.pop();
+    LoaderIT = 0;
+    //CurrentTags.pop();
     //std::cout << "Popped, New Size: " << CurrentTags.size() << std::endl;
   }
 }
@@ -537,7 +609,7 @@ std::map<std::string,COLLADAScene::TagOptions> COLLADAScene::TagLUT{
     {"reflective", TagOptions::Reflective},
     {"reflectivity", TagOptions::Reflectivity},
     {"render", TagOptions::Render},
-    {"renderable", TagOptions::Renderable},
+    {"renderable", TagOptions::RRenderable},
     {"rescale_normal_enable", TagOptions::RescaleNormalEnable},
     {"restitution", TagOptions::Restitution},
     {"revision", TagOptions::Revision},

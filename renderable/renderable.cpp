@@ -1,26 +1,34 @@
 #include "renderable.h"
-/*
-glm::vec3 ApplyMatrix(glm::mat4 inmodel, glm::vec3 invert)
-{
 
-}*/
+Renderable::Renderable()
+{
+  Init();
+}
 
 Renderable::Renderable(std::shared_ptr<Model> model)
 {
-    rotAxis = glm::vec3(0.f);
-    spinAxis = glm::vec3(0.f);
-    alpha = 1.0f;
-    trans = glm::vec3(0.f);
-    scale = glm::vec3(1.f);
+  Init();
+  setModel(model);
+}
 
-    flags.isSelected = false;
-    flags.isHovered = false;
-    flags.QueueDestruction = false;
-    flags.isCollisionUpdated = false;
+void Renderable::Init()
+{
+  rotAxis = glm::vec3(0.f);
+  spinAxis = glm::vec3(0.f);
+  alpha = 1.0f;
+  trans = glm::vec3(0.f);
+  scale = glm::vec3(1.f);
+  Info.ImpliedTransform = glm::mat4(1.f);
 
-    //_model->InitDataPtr(ModelDataPtr);
+  flags.isSelected = false;
+  flags.isHovered = false;
+  flags.QueueDestruction = false;
+  flags.isCollisionUpdated = false;
+}
 
-    _model = model;
+void Renderable::setModel(std::shared_ptr<Model> model)
+{
+  _model = model;
 }
 
 Renderable::Renderable( Renderable *_new )
@@ -177,13 +185,17 @@ float Renderable::raycastAABB(glm::vec3 pos, glm::vec3 dir)
         return -1.f;
     }
 
-    float oIntDis = -1.f;
-    if (_model->CollisionIndices.size() > 0)
-        for (auto i = _model->CollisionIndices.begin(); i < _model->CollisionIndices.end(); i+=3)
-        {
-            if (raycastTriangle(&oIntDis,pos,rayDir,TransformedCollisionVerts[i[0]],TransformedCollisionVerts[i[1]],TransformedCollisionVerts[i[2]]))
-                return oIntDis;
-        }
+  float oIntDis = -1.f;
+  if (_model->CollisionIndices.size() > 0)
+    for (auto i = _model->CollisionIndices.begin(); i < _model->CollisionIndices.end(); i+=3)
+    {
+      glm::vec3 tri[3] {
+        TransformedCollisionVerts[i[0]],
+        TransformedCollisionVerts[i[1]],
+        TransformedCollisionVerts[i[2]]};
+      if (raycastTriangle(&oIntDis,pos,rayDir,tri[0],tri[1],tri[2]))
+        return oIntDis;
+    }
     else
         for (auto i = TransformedCollisionVerts.begin(); i < TransformedCollisionVerts.end(); i+=3)
         {
@@ -196,31 +208,19 @@ float Renderable::raycastAABB(glm::vec3 pos, glm::vec3 dir)
 }
 
 glm::mat4 Renderable::ApplyTransforms(glm::mat4 inmodel, glm::vec3 inrot, glm::vec3 intrans, glm::vec3 inscale)
-{
-    glm::mat4 model = inmodel;
+{ 
+  glm::mat4 ScaleModel = glm::scale(glm::mat4(1.f),inscale);
+  glm::mat4 RotModel = glm::toMat4(glm::quat(glm::radians(inrot)));
+  glm::mat4 TransModel = glm::translate(glm::mat4(1.f), intrans);
+  glm::mat4 OutMatrix = inmodel * TransModel * RotModel * ScaleModel;
 
-    model = glm::translate(model, intrans);
+  // Clamp matrix to zero, solves 
+  for (int col = 0; col < 4; ++col)
+    for (int row = 0; row < 4; ++row)
+      if (glm::abs(OutMatrix[col][row]) < 0.001f)
+        OutMatrix[col][row] = 0.f;
 
-    model = glm::scale(model,inscale);
-
-/*
-    model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
-        glm::angleAxis(							// Angle axis has two arguments - angle and axis
-            glm::radians(inrot.x),					// The angle to rotate all the vertices, converts deg to rad
-            glm::vec3(1.f,0.f,0.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
-    model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
-        glm::angleAxis(							// Angle axis has two arguments - angle and axis
-            glm::radians(inrot.y),					// The angle to rotate all the vertices, converts deg to rad
-            glm::vec3(0.f,1.f,0.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
-    model = model * glm::toMat4(				// Angle axis returns a quaternion - convert into a 4x4 matrix
-        glm::angleAxis(							// Angle axis has two arguments - angle and axis
-            glm::radians(inrot.z),					// The angle to rotate all the vertices, converts deg to rad
-            glm::vec3(0.f,0.f,1.f) ));							// Which axis to apply the rotation to and how much - (x,y,z)
-*/
-
-    model = model * glm::toMat4(glm::quat(glm::radians(inrot)));
-
-    return model;
+  return OutMatrix;
 }
 
 void Renderable::AnimationUpdate(float DeltaTime, glm::mat4 ParentModelMatrix)
@@ -247,15 +247,25 @@ void Renderable::AnimationUpdate(float DeltaTime, glm::mat4 ParentModelMatrix)
     trans += PotentialTranslation;
     scale += PotentialScale;
 
-    glm::mat4 PotentialTransform = ApplyTransforms(ParentModelMatrix,rotAxis,trans,scale);
+    glm::mat4 PotentialTransform = ApplyTransforms(ParentModelMatrix * Info.ImpliedTransform,rotAxis,trans,scale);
 
     TransformedCollisionVerts.clear();
     //TransformedCollisionVerts.resize (_model->CollisionVerts.size() / 3, glm::vec3(0.0f));
     //std::vector<glm::vec3> verts;// verts.resize (_model->CollisionVerts.size() / 3);
     //int i = 0;
+    //std::cout << "Name: " << _model->Info.Title << std::endl;
+    /*auto pt = PotentialTransform;
+    for (int row = 0; row < 4; ++row) {
+        for (int col = 0; col < 4; ++col) {
+            std::cout << std::left << std::setw(15) << pt[col][row] << " "; // glm::mat4 is column-major
+        }
+        std::cout << std::endl;
+    }*/
     for (auto it = _model->CollisionVerts.begin(); it < _model->CollisionVerts.end(); it+=3)
     {
         glm::vec4 positionVec4 = PotentialTransform * glm::vec4(it[0],it[1],it[2],1.0f);
+        //std::cout << positionVec4.x << ' ' << positionVec4.y << ' ' << positionVec4.z << ' ' << positionVec4.w << std::endl;
+        //if (positionVec4.w < 0.001f) std::cout << "Name: " << _model->Info.Title << std::endl;
         TransformedCollisionVerts.push_back(glm::vec3(positionVec4.x,positionVec4.y,positionVec4.z) / positionVec4.w);
         //verts.push_back(glm::vec3(it[0],it[1],it[2]));
         //++i;
@@ -274,7 +284,7 @@ void Renderable::Collide(std::shared_ptr<Renderable> k)
 
 void Renderable::genModelMatrix(glm::mat4 inmodel)
 {
-    _modelmatrix = ApplyTransforms(inmodel,rotAxis,trans,scale);
+    _modelmatrix = ApplyTransforms(inmodel * Info.ImpliedTransform,rotAxis,trans,scale);
 }
 
 void Renderable::updateAABB()

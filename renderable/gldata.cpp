@@ -4,7 +4,7 @@
 template<class T>
 _SharedUINT<T>::_SharedUINT()
 {
-  std::cout << "SHAREDUINT DEFAULT CONSTRUCTOR" << std::endl;
+  //std::cout << "SHAREDUINT DEFAULT CONSTRUCTOR" << std::endl;
   _VAOPTR = nullptr;
 }
 

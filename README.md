@@ -20,7 +20,7 @@ git pull origin master
 
 ## To Build
 ```bash
-cmake -B build/
+cmake -B build/ -S . 
 cmake --build build/
 ./build/split
 ```

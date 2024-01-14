@@ -40,7 +40,6 @@ add_library(glscene OBJECT
     model/model.cpp
     model/cube.cpp
     model/window.cpp
-    model/blank.cpp
 )
 
 # Add executables and link libraries

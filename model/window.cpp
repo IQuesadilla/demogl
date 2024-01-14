@@ -46,8 +46,9 @@ Window::Window() : Model()
     cap.set(cv::CAP_PROP_CONVERT_RGB,1.0);
 
     isEnclosed = false;
-    TCount = 2;
-    name = "window";
+    //TCount = 2;
+    Info.Title = "window";
+    GLInit();
 
     if (!cap.isOpened())
     {

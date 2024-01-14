@@ -32,7 +32,6 @@
 //#include "model/model.h"
 #include "model/cube.h"
 #include "model/window.h"
-#include "model/blank.h"
 
 #define FullOnStart false
 #define myFFlag SDL_WINDOW_FULLSCREEN_DESKTOP
@@ -155,7 +154,7 @@ public:
 
     SceneLibrary["RootScene"] = world;
 		world->shaders["basic_textured"].reset( new _shader("assets/basic_textured.vert","assets/basic_textured.frag") );
-		world->models["blank"].reset( new Blank() );
+		world->models["blank"].reset( new Model() );
 		world->models["cube"].reset( new myCube() );
 		world->models["cube"]->shader = world->shaders["basic_textured"];
 		world->models["window"].reset( new Window() );
@@ -251,7 +250,7 @@ public:
 
 		// Projection and view are the same per model because they are affected by the camera
 		//glMatrixMode(GL_PROJECTION);
-    camera->BuildProjectionMatrix(0.5f,86.7f); // Needs to run every frame
+    camera->BuildProjectionMatrix(0.5f,870.f); // Needs to run every frame
 		glm::mat4 projection = camera->ProjectionMatrix;
 		glm::mat4 view = camera->GetViewMatrix();
 

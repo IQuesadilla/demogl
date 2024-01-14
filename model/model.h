@@ -31,6 +31,7 @@ struct AssetData
   std::string Revision;
   std::string Subject;
   std::string Title;
+  glm::mat4 ImpliedTransform;
 };
 
 class Model
@@ -54,9 +55,7 @@ public:
   std::vector<GLfloat> CollisionVerts;
   std::vector<GLuint> CollisionIndices;
 
-  std::string name;
-  std::string author;
-  AssetData info;
+  AssetData Info;
 
 //protected:
   void Init();
