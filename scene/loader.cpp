@@ -1,19 +1,23 @@
 #include "loader.h"
 #include "collada.h"
 
-GLSceneLoader::GLSceneLoader()
+GLSceneLoader::GLSceneLoader(libQ::log _logobj)
 {
+  logobj = _logobj;
+  logobj.setClass("GLSceneLoader");
+  auto log = logobj("GLSceneLoader");
   //QueueMutex.lock();
   //Polling = true;
   ShouldExit = false;
   //_DefaultShader = DefaultShader;
-  LoaderThread = std::thread(&GLSceneLoader::ThreadFunction, this);
+  LoaderThread = std::thread(&GLSceneLoader::ThreadFunction, this, _logobj.split("GLSceneLoader"));
 }
 
 GLSceneLoader::~GLSceneLoader()
 {
+  auto log = logobj("~GLSceneLoader");
   {
-    std::cout << "Attemping lock to kill" << std::endl;
+    log << "Attemping lock to kill" << libQ::NOTEV;
     std::lock_guard<std::mutex> lock(QueueMutex);
     ShouldExit = true;
     Condition.notify_one();
@@ -23,13 +27,15 @@ GLSceneLoader::~GLSceneLoader()
 
 void GLSceneLoader::QueueFile(std::filesystem::path FilePath)
 {
-  std::cout << "Queueing file: " << FilePath.string() << std::endl;
+  auto log = logobj("QueueFile");
+  log << "Queueing file: " << FilePath.string() << libQ::VALUEV;
   PreFileQueue.push(FilePath);
 }
 
 std::pair<std::string,std::shared_ptr<GLScene>>
   GLSceneLoader::Retrieve()
 {
+  auto log = logobj("Retrieve",libQ::DELAYPRINTFUNCTION);
   std::unique_lock<std::mutex> QueueLock(QueueMutex, std::try_to_lock);
   if (QueueLock && !PreFileQueue.empty())//QueueMutex.try_lock())
   {
@@ -37,7 +43,7 @@ std::pair<std::string,std::shared_ptr<GLScene>>
     FileQueue.push(FilePath);
     PreFileQueue.pop();
     Condition.notify_one();
-    std::cout << "Successfully Queued File: " << FilePath.string() << std::endl;
+    log << "Successfully Queued File: " << FilePath.string() << libQ::VALUEV;
   }
 
   std::unique_lock<std::mutex> SceneLock(SceneMutex, std::try_to_lock);
@@ -54,14 +60,17 @@ bool GLSceneLoader::isLoading()
   return true;//!Polling;
 }
 
-void GLSceneLoader::ThreadFunction()
+void GLSceneLoader::ThreadFunction(libQ::log *tlogobj)
 {
+  std::shared_ptr<libQ::log> _logobj; _logobj.reset(tlogobj);
+  _logobj->setClass("GLSceneLoader");
+  auto log = _logobj->function("ThreadFunction");
   while (true)
   {
     std::unique_lock<std::mutex> QueueLock(QueueMutex);
-    std::cout << "Sleeping until triggered" << std::endl;
+    log << "Sleeping until triggered" << libQ::NOTEDEBUG;
     Condition.wait(QueueLock, [this]{ return !FileQueue.empty() || ShouldExit; });
-    std::cout << "--> Triggered" << std::endl;
+    log << "Condition Triggered" << libQ::NOTEDEBUG;
     if (ShouldExit) return;
 
     while (FileQueue.size() > 0)
@@ -71,7 +80,7 @@ void GLSceneLoader::ThreadFunction()
       std::filesystem::path FilePath = FileQueue.front();
       FileQueue.pop();
       QueueLock.unlock();
-      std::cout << "File Path: " << FilePath << std::endl;
+      log << "File Path: " << FilePath << libQ::VALUEV;
 
       //std::filesystem::path FilePath = myFileBrowser.GetSelected();
       std::string RelPathString = std::filesystem::relative(FilePath,std::filesystem::current_path()).string();
@@ -84,18 +93,18 @@ void GLSceneLoader::ThreadFunction()
       std::shared_ptr<GLScene> ToImport = nullptr;
       if (ExtensionString == ".dae")
       {
-        COLLADAScene *SceneImport = new COLLADAScene(FilePath.string());
-        GLScene *NewScene = new GLScene();
+        COLLADAScene *SceneImport = new COLLADAScene(FilePath.string(),logobj);
+        GLScene *NewScene = new GLScene(logobj);
         NewScene->ImportScene(SceneImport);
         delete SceneImport;
         ToImport.reset(NewScene);
-        std::cout << FilePath << " import time: " <<
+        log << FilePath << " import time: " <<
           std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - LoadStart).count()
-          << " ms" << std::endl;
+          << " ms" << libQ::VALUEV;
       }
       else
       {
-        std::cout << "No support for file extension " << ExtensionString << std::endl;
+        log << "No support for file extension " << ExtensionString << libQ::ERROR;
         continue;
       }
 

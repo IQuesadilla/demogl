@@ -33,6 +33,7 @@
 
 # VIM
 *.swp
+*.log
 
 # Target
 demo

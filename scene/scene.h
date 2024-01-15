@@ -21,11 +21,12 @@
 #include "renderable/renderable.h"
 #include "renderable/gldata.h"
 #include "camera.h"
+#include "log.h"
 
 class GLScene
 {
 public:
-  GLScene();
+  GLScene(libQ::log _logobj);
   virtual ~GLScene();
 
   void Init();
@@ -64,6 +65,7 @@ public:
   SharedVAO AABBVAO, SkyboxVAO;
   bool selectClosest, itemWasToggledOpen;
 
+  libQ::log logobj;
   AssetData Info;
 };
 

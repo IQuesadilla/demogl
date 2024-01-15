@@ -1,12 +1,14 @@
 #include "collada.h"
 
-COLLADAScene::COLLADAScene(std::string path) : GLScene(), basicxml()
+COLLADAScene::COLLADAScene(std::string path, libQ::log _logobj) : GLScene(_logobj), basicxml()
 {
+  logobj.setClass("COLLADAScene");
+  auto log = logobj("COLLADAScene");
   LoaderIT = 0;
   isInsideTriangles = false;
   //TrianglesInputCount = 0;
 
-  std::cout << "COLLADAScene Size: " << sizeof(COLLADAScene) << std::endl;
+  log << "COLLADAScene Size: " << (int)sizeof(COLLADAScene) << libQ::VALUEDEBUG;
 
   ifs.open(path);
   if (ifs.is_open())
@@ -19,11 +21,11 @@ COLLADAScene::COLLADAScene(std::string path) : GLScene(), basicxml()
 
     std::chrono::steady_clock::time_point ParseBegin = std::chrono::steady_clock::now();
     parse();
-    std::cout << "Finished Parsing file " << path << ", Took " <<
+    log << "Finished Parsing file " << path << ", Took " <<
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ParseBegin).count()
-      << " milliseconds" << std::endl;
+      << " milliseconds" << libQ::VALUEVV;
   } else {
-    std::cout << "Failed to open file " << path << std::endl;
+    log << "Failed to open file " << path << libQ::ERROR;
   }
 }
 
@@ -31,20 +33,21 @@ int COLLADAScene::loadcallback(char *buffer, int buffsize)
 {
   ifs.read(buffer, buffsize);
   int s = ifs.gcount();
-  //std::cout << "Requested " << buffsize << " bytes, Read " << s << " bytes" << std::endl;
+  //std:cout << "Requested " << buffsize << " bytes, Read " << s << " bytes" << std::endl;
   return s;
 }
 
 void COLLADAScene::parsecallback(element e)
 {
+  auto log = logobj("parsecallback",libQ::NEVERPRINTFUNCTION);
   TagOptions LoadingTag;
   std::string name(e.name);//,e.namelen);
   std::string value(e.value);//,e.valuelen);
   LoadingTag = TagLUT[name];
 
-  //std::cout << "--> Name: " << name << ", Enum: " << LoadingTag.Name << std::endl;
-  //if (e.valuelen > 0) std::cout << "--> Value: {" << value << "}" << std::endl;
-  //std::cout << "--> Closing: " << e.isClosing << ", Standalone: " << e.isStandalone << ", First: " << e.isFirst << std::endl;
+  //std:cout << "--> Name: " << name << ", Enum: " << LoadingTag.Name << std::endl;
+  //if (e.valuelen > 0) std:cout << "--> Value: {" << value << "}" << std::endl;
+  //std:cout << "--> Closing: " << e.isClosing << ", Standalone: " << e.isStandalone << ", First: " << e.isFirst << std::endl;
   if (!e.isClosing) {
     std::unordered_map<std::string,std::string> Arguments;
     for (auto arg = e.atts; arg != nullptr; arg = arg->next)
@@ -85,7 +88,7 @@ void COLLADAScene::parsecallback(element e)
         if (LengthString.length() > 0)
         {
           int FloatCount = std::stoi(LengthString);
-          std::cout << "Array: " << CurrentLoadingArray << ", FloatCount: " << FloatCount << std::endl;
+          log << "Array: " << CurrentLoadingArray << ", FloatCount: " << FloatCount << libQ::VALUEVV;
           array->reserve(FloatCount);
         }
 
@@ -96,7 +99,7 @@ void COLLADAScene::parsecallback(element e)
           ++LoaderIT;
           array->push_back(number);
         }
-        //std::cout << "Loaded Float Array." << std::endl;
+        //std:cout << "Loaded Float Array." << std::endl;
       }
       break;
     case GeographicLocation:
@@ -112,7 +115,7 @@ void COLLADAScene::parsecallback(element e)
     case Input:
       {
         if (isInsideTriangles) ++TrianglesInputCount;
-        //std::cout << "TrianglesInputCount: " << TrianglesInputCount << std::endl;
+        //std:cout << "TrianglesInputCount: " << TrianglesInputCount << std::endl;
         std::string semantic = Arguments["semantic"];
         if (semantic == "VERTEX")
         {
@@ -120,10 +123,10 @@ void COLLADAScene::parsecallback(element e)
           std::string SourceID = SourceStr.substr(1,SourceStr.length()-1);
           auto &Array = SourcesArray[SourceID].FloatArray;
 
-          //std::cout << "Setting vertice from ID "<< SourceID << " to {" << std::flush;
+          //std: cout << "Setting vertice from ID "<< SourceID << " to {" << std::flush;
           //for (auto &x : Array)
-          //  std::cout << x << ',';
-          //std::cout << "}" << std::endl;
+          //  std :cout << x << ',';
+          //std: cout << "}" << std::endl;
 
           CurrentModel->setModel(Array);
           CurrentModel->CollisionVerts = Array;
@@ -132,7 +135,7 @@ void COLLADAScene::parsecallback(element e)
         {
           std::string SourceStr = Arguments["source"];
           std::string SourceID = SourceStr.substr(1,SourceStr.length()-1)+"-array";
-          std::cout << "Copying " << VerticesID << " to " << SourceID << "." << std::endl;
+          log << "Copying " << VerticesID << " to " << SourceID << "." << libQ::NOTEVV;
           SourcesArray[VerticesID] = SourcesArray[SourceID];
         }
       }
@@ -157,7 +160,7 @@ void COLLADAScene::parsecallback(element e)
     case Matrix:
       if (Arguments["sid"] == "transform")
       {
-        std::cout << "Transform: " << value << std::endl;
+        log << "Transform: " << value << libQ::VALUEVV;
         int i = 0;
         float number;
         glm::mat4 transform;
@@ -166,7 +169,7 @@ void COLLADAScene::parsecallback(element e)
         {
           if (glm::abs(number) < 0.001f) number = 0.f;
           transform[i%4][i/4] = number;
-          //std::cout << "Number [" << i/4 << "][" << i%4 << "] = " << number << std::endl;
+          //std:cout << "Number [" << i/4 << "][" << i%4 << "] = " << number << std::endl;
           ++i;
         }
         CurrentNode.top()->Info.ImpliedTransform = transform;
@@ -208,10 +211,10 @@ void COLLADAScene::parsecallback(element e)
       isInsideTriangles = true;
       TrianglesInputCount = 0;
       ClaimedTriCount = std::stoi(Arguments["count"]);
-      std::cout << "Clamed Triangle Count: " << ClaimedTriCount << std::endl;
+      log << "Clamed Triangle Count: " << ClaimedTriCount << libQ::VALUEVV;
     } break;
     case UpAxis:
-      std::cout << "World UpAxis: \"" << value << "\", Author: " << CurrentAsset->Author << std::endl;
+      log << "World UpAxis: \"" << value << "\", Author: " << CurrentAsset->Author << libQ::VALUEVV;
       if (value == "Z_UP") CurrentAsset->ImpliedTransform = glm::mat4(1.f) * glm::toMat4(glm::quat(glm::radians(glm::vec3(-90.f,0.f,0.f))));
       break;
     case Vertices:
@@ -224,25 +227,25 @@ void COLLADAScene::parsecallback(element e)
     default:
       // This is very important.
       // If this is run, a COLLADA feature is being used that isn't supported
-      //std::cout << "Running default option for tag " << name << std::endl;
+      //std: cout << "Running default option for tag " << name << std::endl;
       break;
     };
 
     /*if (!e.isStandalone && e.isFirst)
     {
       //CurrentTags.push(LoadingTag);
-      //std::cout << "Pushed, New size: " << CurrentTags.size() << std::endl;
+      //std: cout << "Pushed, New size: " << CurrentTags.size() << std::endl;
     }*/
   } else { // ------------------------- Closing </example> --------------------------
     switch (LoadingTag)
     {
     case FloatArray:
-      //std::cout << "here" << std::endl << std::endl << std::endl << std::endl;
-      //std::cout << "DEBUG Float Array Print: \"" << CurrentLoadingArray << "\" = <" << std::flush;
+      //std: cout << "here" << std::endl << std::endl << std::endl << std::endl;
+      //std: cout << "DEBUG Float Array Print: \"" << CurrentLoadingArray << "\" = <" << std::flush;
       //for (auto &x : SourcesArray[CurrentLoadingArray].FloatArray)
-      //  std::cout << x << ",";
-      //std::cout << ">" << std::endl;
-      std::cout << "Successfully loaded FloatArray \"" << CurrentLoadingArray << "\", Actual Size: " << LoaderIT << std::endl;
+      //  std: cout << x << ",";
+      //std: cout << ">" << std::endl;
+      log << "Successfully loaded FloatArray \"" << CurrentLoadingArray << "\", Actual Size: " << LoaderIT << libQ::VALUEVV;
       //LoaderIT = 0;
       break;
     case Geometry:
@@ -255,13 +258,13 @@ void COLLADAScene::parsecallback(element e)
       CurrentNode.pop();
       break;
     case P:
-      std::cout << "P Loaded " << LoaderIT << " numbers" << std::endl;
+      log << "P Loaded " << LoaderIT << " numbers" << libQ::NOTEVV;
       //LoaderIT = 0;
 
-      //std::cout << "Setting indices to {" << std::flush;
+      //std: cout << "Setting indices to {" << std::flush;
       //for (auto &x : UIntVector)
-      //  std::cout << x << ',';
-      //std::cout << "}" << std::endl;
+      //  std: cout << x << ',';
+      //std: cout << "}" << std::endl;
       CurrentModel->setIndices(UIntVector);
       CurrentModel->CollisionIndices = UIntVector;
       UIntVector.clear();
@@ -269,7 +272,7 @@ void COLLADAScene::parsecallback(element e)
     case Triangles:
       //CurrentModel->TCount = FloatVector.size();
       //CurrentModel->CollisionVerts = FloatVector;
-      std::cout << "Loadeded Triangles, Implied P Count: " << ClaimedTriCount*TrianglesInputCount*3 << std::endl;
+      log << "Loadeded Triangles, Implied P Count: " << ClaimedTriCount*TrianglesInputCount*3 << libQ::VALUEVV;
       CurrentModel->Info.Author = "Me";
       //TrianglesInputCount = 0;5
       isInsideTriangles = false;
@@ -279,7 +282,7 @@ void COLLADAScene::parsecallback(element e)
     };
     LoaderIT = 0;
     //CurrentTags.pop();
-    //std::cout << "Popped, New Size: " << CurrentTags.size() << std::endl;
+    //std:cout << "Popped, New Size: " << CurrentTags.size() << std::endl;
   }
 }
 

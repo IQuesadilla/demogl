@@ -28,6 +28,7 @@ add_library(libQ OBJECT
     libQ/src/shader.cpp
     libQ/src/camera.cpp
     libQ/src/xml.cpp
+    libQ/src/log.cpp
 )
 
 add_library(glscene OBJECT

@@ -9,22 +9,25 @@
 #include <utility>
 #include <condition_variable>
 
+#include "log.h"
+
 class GLSceneLoader
 {
 public:
-  GLSceneLoader();
+  GLSceneLoader(libQ::log _logobj);
   ~GLSceneLoader();
   void QueueFile(std::filesystem::path FilePath);
   std::pair<std::string,std::shared_ptr<GLScene>> Retrieve();
   bool isLoading();
 private:
-  void ThreadFunction();
+  void ThreadFunction(libQ::log *tlogobj);
   std::mutex QueueMutex, SceneMutex;
   std::queue<std::filesystem::path> PreFileQueue;  
   std::queue<std::filesystem::path> FileQueue;
   std::queue<std::pair<std::string,std::shared_ptr<GLScene>>> SceneQueue;
   std::thread LoaderThread;
   std::condition_variable Condition;
+  libQ::log logobj;
   //std::shared_ptr<_shader> _DefaultShader;
   bool ShouldExit;
 };

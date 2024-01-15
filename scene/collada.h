@@ -8,7 +8,7 @@
 class COLLADAScene : public GLScene, public basicxml
 {
 public:
-  COLLADAScene(std::string path);
+  COLLADAScene(std::string path, libQ::log _logobj);
 
   int loadcallback(char *buffer, int buffsize);
   void parsecallback(element e);

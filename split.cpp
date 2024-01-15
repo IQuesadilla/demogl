@@ -20,6 +20,8 @@
 #include <glm.hpp>
 #include <gtx/quaternion.hpp>
 
+#include "log.h"
+
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
@@ -39,6 +41,198 @@
 #define WWIDTH 1280
 #define WHEIGHT 720
 
+#include "imgui.h"
+#include "colorcodes.h"
+#include <string>
+#include <unordered_map>
+#include <regex>
+
+// Function to map escape codes to ImGui colors
+ImVec4 GetColorFromEscapeCode(const std::string& code) {
+  static const std::unordered_map<std::string, ImVec4> colorMap = {
+    { RESET, ImGui::GetStyleColorVec4(ImGuiCol_Text) },     // RESET - White (assuming default)
+    { BLACK, ImVec4(0.0f, 0.0f, 0.0f, 1.0f) },    // BLACK
+    { RED, ImVec4(1.0f, 0.0f, 0.0f, 1.0f) },    // RED
+    { GREEN, ImVec4(0.0f, 1.0f, 0.0f, 1.0f) },    // GREEN
+    { YELLOW, ImVec4(1.0f, 1.0f, 0.0f, 1.0f) },    // YELLOW
+    { BLUE, ImVec4(0.0f, 0.0f, 1.0f, 1.0f) },    // BLUE
+    { MAGENTA, ImVec4(1.0f, 0.0f, 1.0f, 1.0f) },    // MAGENTA
+    { CYAN, ImVec4(0.0f, 1.0f, 1.0f, 1.0f) },    // CYAN
+    { WHITE, ImVec4(1.0f, 1.0f, 1.0f, 1.0f) },    // WHITE
+  };
+
+  auto it = colorMap.find(code);
+  if (it != colorMap.end()) {
+    return it->second;
+  }
+
+  return ImGui::GetStyleColorVec4(ImGuiCol_Text); // Default color
+}
+
+// Function to render colored text
+void RenderAnsiColoredText(const std::string& text) {
+  static const std::regex colorRegex("\033\\[[0-9;]*m");
+  std::sregex_iterator wordsBegin = std::sregex_iterator(text.begin(), text.end(), colorRegex);
+  std::sregex_iterator wordsEnd = std::sregex_iterator();
+
+  size_t lastPos = 0;
+  for (std::sregex_iterator i = wordsBegin; i != wordsEnd; ++i)
+  {
+    std::smatch match = *i;
+    size_t matchPos = match.position();
+
+    // Render text before escape code
+    if (matchPos > lastPos)
+    {
+      //std::cout << text.substr(lastPos, matchPos - lastPos) << std::endl;
+      ImGui::TextUnformatted(text.substr(lastPos, matchPos - lastPos).c_str());
+      ImGui::SameLine();
+
+      if (lastPos != 0) ImGui::PopStyleColor();
+      ImVec4 color = GetColorFromEscapeCode(match.str());
+      ImGui::PushStyleColor(ImGuiCol_Text, color);
+      //ImGui::SameLine(0.0f, 0.0f);
+    }
+
+    //if (i != wordsBegin) ImGui::PopStyleColor();
+
+    // Apply color 
+
+    lastPos = matchPos + match.length();
+  }
+
+  // Render remaining text
+  if (lastPos < text.length()) {
+    ImGui::TextUnformatted(text.substr(lastPos).c_str());
+  } else ImGui::TextUnformatted("");
+  if (lastPos != 0) ImGui::PopStyleColor();
+
+  //ImGui::PopStyleColor(); // Pop the last color
+}
+
+struct ExampleAppLog
+{
+  ImGuiTextBuffer     Buf;
+  ImGuiTextFilter     Filter;
+  ImVector<int>       LineOffsets; // Index to lines offset. We maintain this with AddLog() calls.
+  bool                AutoScroll;  // Keep scrolling if already at the bottom.
+
+  ExampleAppLog()
+  {
+    AutoScroll = true;
+    Clear();
+  }
+
+  void    Clear()
+  {
+    Buf.clear();
+    LineOffsets.clear();
+    LineOffsets.push_back(0);
+  }
+
+  void    AddLog(const char* fmt, ...) IM_FMTARGS(2)
+  {
+    int old_size = Buf.size();
+    va_list args;
+    va_start(args, fmt);
+    Buf.appendfv(fmt, args);
+    va_end(args);
+    for (int new_size = Buf.size(); old_size < new_size; old_size++)
+      if (Buf[old_size] == '\n')
+        LineOffsets.push_back(old_size + 1);
+  }
+
+  void    Draw(const char* title, bool* p_open = NULL)
+  {
+    if (!ImGui::Begin(title, p_open))
+    {
+      ImGui::End();
+      return;
+    }
+
+    // Options menu
+    if (ImGui::BeginPopup("Options"))
+    {
+      ImGui::Checkbox("Auto-scroll", &AutoScroll);
+      ImGui::EndPopup();
+    }
+
+    // Main window
+    if (ImGui::Button("Options"))
+      ImGui::OpenPopup("Options");
+    ImGui::SameLine();
+    bool clear = ImGui::Button("Clear");
+    ImGui::SameLine();
+    bool copy = ImGui::Button("Copy");
+    ImGui::SameLine();
+    Filter.Draw("Filter", -100.0f);
+
+    ImGui::Separator();
+
+    if (ImGui::BeginChild("scrolling", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar))
+    {
+      if (clear)
+        Clear();
+      if (copy)
+        ImGui::LogToClipboard();
+
+      ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+      const char* buf = Buf.begin();
+      const char* buf_end = Buf.end();
+      if (Filter.IsActive())
+      {
+        // In this example we don't use the clipper when Filter is enabled.
+        // This is because we don't have random access to the result of our filter.
+        // A real application processing logs with ten of thousands of entries may want to store the result of
+        // search/filter.. especially if the filtering function is not trivial (e.g. reg-exp).
+        for (int line_no = 0; line_no < LineOffsets.Size; line_no++)
+        {
+          const char* line_start = buf + LineOffsets[line_no];
+          const char* line_end = (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
+          if (Filter.PassFilter(line_start, line_end))
+            RenderAnsiColoredText(std::string(line_start, line_end));
+        }
+      }
+      else
+      {
+                // The simplest and easy way to display the entire buffer:
+                //   ImGui::TextUnformatted(buf_begin, buf_end);
+                // And it'll just work. TextUnformatted() has specialization for large blob of text and will fast-forward
+                // to skip non-visible lines. Here we instead demonstrate using the clipper to only process lines that are
+                // within the visible area.
+                // If you have tens of thousands of items and their processing cost is non-negligible, coarse clipping them
+                // on your side is recommended. Using ImGuiListClipper requires
+                // - A) random access into your data
+                // - B) items all being the  same height,
+                // both of which we can handle since we have an array pointing to the beginning of each line of text.
+                // When using the filter (in the block of code above) we don't have random access into the data to display
+                // anymore, which is why we don't use the clipper. Storing or skimming through the search result would make
+                // it possible (and would be recommended if you want to search through tens of thousands of entries).
+        ImGuiListClipper clipper;
+        clipper.Begin(LineOffsets.Size);
+        while (clipper.Step())
+        {
+          for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
+          {
+            const char* line_start = buf + LineOffsets[line_no];
+            const char* line_end = (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
+            RenderAnsiColoredText(std::string(line_start, line_end));
+          }
+        }
+        clipper.End();
+      }
+      ImGui::PopStyleVar();
+
+      // Keep up at the bottom of the scroll region if we were already at the bottom at the beginning of the frame.
+      // Using a scrollbar or mouse-wheel will take away from the bottom edge.
+      if (AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+        ImGui::SetScrollHereY(1.0f);
+    }
+    ImGui::EndChild();
+    ImGui::End();
+  }
+};
+
 class gldemo
 {
 public:
@@ -50,11 +244,24 @@ public:
 		SDL_SetMainReady();
 
 		start = std::chrono::steady_clock::now();
+    logobj.setClass("gldemo");
+    logobj[1].setVerbosity(libQ::DEBUG);
+    logobj[1].setCallback(*this,&gldemo::PrintCallback);
+
+    LogFile.open("split.log");
+    if (LogFile)
+    {
+      logobj[2].setColors(false);
+      logobj[2].setVerbosity(libQ::DEBUG);
+      logobj[2].setCallback(*this,&gldemo::LogFileCallback);
+    } else std::cerr << "Failed to open log file" << std::endl;
+
+    auto log = logobj("gldemo",libQ::DELAYPRINTFUNCTION);
 
 		// Initialize Video and Events on SDL, no need to initialize any other subsystems
 		if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) < 0 )
 		{
-			std::cout << "Failed to init SDL! SDL: " << SDL_GetError() << std::endl;
+			std::cerr << "Failed to init SDL! SDL: " << SDL_GetError() << std::endl;
 			return;
 		}
 
@@ -79,16 +286,16 @@ public:
 
 		// window will be NULL if CreateWindow failed
 		if( window == NULL )
-        {
-            printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
-            return;
-        }
+    {
+      std::cerr << "Window could not be created! SDL Error: " << SDL_GetError() << std::endl;
+      return;
+    }
 
 		// start OpenGL within the SDL window, returns NULL if failed
 		glcontext = SDL_GL_CreateContext( window );
 		if( glcontext == NULL )
 		{
-			printf( "OpenGL context could not be created! SDL Error: %s\n", SDL_GetError() );
+      std::cerr << "OpenGL context could not be created! SDL Error: " << SDL_GetError() << std::endl;
 			return;
 		}
 
@@ -96,12 +303,16 @@ public:
 
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
 		{
-			printf( "Failed loading glad" );
+      std::cerr << "Failed loading glad" << std::endl;
 			return;
 		}
-    else std::cout << "Successfully loaded GLAD" << std::endl;
+    //else std:cout << "Successfully loaded GLAD" << std::endl;
+
+    // Should not cout after this point
+    //auto log = logobj->function("split");
 
 		#if AA_LEVEL
+      log << "Attempting to enable AntiAliasing" << libQ::NOTEDEBUG;
 			glEnable(GL_MULTISAMPLE);
 		#endif
 
@@ -111,7 +322,7 @@ public:
 		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
 		if (icon == NULL)
 		{
-			std::cout << "Failed to load icon image" << std::endl;
+			log << "Failed to load icon image" << libQ::WARNING;
 		}
 		else
 		{
@@ -119,6 +330,7 @@ public:
 			SDL_FreeSurface(icon);
 		}
 
+    log << "Creating camera object" << libQ::NOTEDEBUG;
 		// Create a new camera and set it's default position to (x,y,z)
 		// +z is towards you, -z is away from you
 		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
@@ -126,14 +338,18 @@ public:
 		camera->MovementSpeed = 0.01f;
 		camera->BinarySensitivity = 2.0f;
 
+    log << "Enabling OpenGL Depth Test" << libQ::NOTEDEBUG;
 		// Enable depth test - makes things in front appear in front
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 
-    SceneLoader.reset(new GLSceneLoader());
+    log << "Starting the SceneLoader Thread" << libQ::NOTEDEBUG;
+    SceneLoader.reset(new GLSceneLoader(logobj));
 
-		world.reset( new GLScene() );
+    log << "Building initial empty scene" << libQ::NOTEDEBUG;
+		world.reset( new GLScene(logobj) );
 
+    log << "Generating Default World Objects" << libQ::NOTEDEBUG;
     DefaultSkyboxVAO.Generate();
     DefaultAABBVAO.Generate();
     DefaultSkyboxTex.Generate();
@@ -163,7 +379,7 @@ public:
 		/*for (auto &model : world->models)
 			if (model.second->shader == nullptr)
 			{
-				std::cout << "Set default shader for \"" << model.first << '"' << std::endl;
+				std:cout << "Set default shader for \"" << model.first << '"' << std::endl;
 				model.second->shader.reset(&world->DefaultShader);
 			}*/
 
@@ -186,25 +402,26 @@ public:
 		font.reset(ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/font.ttf",15,&font_cfg));
 		flags.showDemoMenu = false;
 		flags.showObjectManager = false;
+    flags.isShowingLog = false;
 
 		#if FullOnStart
 			SDL_SetWindowFullscreen(window, myFFlag);
 		#endif
 
 		GLenum err = glGetError();
-        if (err != GL_NO_ERROR) {
-            std::cout << "INIT Error:" << err << std::endl;
-        }
+    if (err != GL_NO_ERROR) {
+      std::cerr << "INIT Error:" << err << std::endl;
+    }
 
 		GLfloat range[2] = {0.0f,0.0f};
 		glGetFloatv(GL_LINE_WIDTH_RANGE, range);
-		std::cout << "Line Width: " << range[0] << ", " << range[1] << std::endl;
+		log << "Line Width: " << range[0] << ", " << range[1] << libQ::VALUEVV;
 		glGetFloatv(GL_POINT_SIZE_RANGE, range);
-		std::cout << "Point Size: " << range[0] << ", " << range[1] << std::endl;
+		log << "Point Size: " << range[0] << ", " << range[1] << libQ::VALUEVV;
 
 		int depthBufferSize;
 		SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &depthBufferSize);
-		std::cout << "Allocated Depth Buffer Size: " << depthBufferSize << std::endl;
+		log << "Allocated Depth Buffer Size: " << depthBufferSize << libQ::VALUEVV;
 
 		fontSize = 1.0f;
 
@@ -217,7 +434,9 @@ public:
 			SDL_GL_SetSwapInterval(1);
 		SDL_ShowWindow(window);
 
-		std::cout << "Setup Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() << "mS" << std::endl;
+		log << "Setup Time: " <<
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count()
+        << "ms" << libQ::VALUE;
 		start = std::chrono::steady_clock::now();
     fps_start = std::chrono::steady_clock::now();
 
@@ -227,6 +446,7 @@ public:
 
 	~gldemo()
 	{
+    auto log = logobj("gldemo::~gldemo");
 		// Properly shutdown OpenGL and destroy the window
 		SDL_GL_DeleteContext(glcontext);
 		SDL_DestroyWindow(window);
@@ -234,6 +454,8 @@ public:
 
 	void runOnce()
 	{
+    auto log = logobj("runOnce",libQ::DELAYPRINTFUNCTION);
+    //log << "Testingggg" << libQ::NOTE;
 		ImGui_ImplOpenGL3_NewFrame();
 		if ( SDL_GetRelativeMouseMode() == SDL_FALSE ) ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
@@ -290,6 +512,7 @@ public:
           myFileBrowser.Open();
           //myFileBrowser.Display();
         }
+        if (ImGui::MenuItem("Show Log", nullptr, flags.isShowingLog)) flags.isShowingLog = !flags.isShowingLog;
 		    if (ImGui::MenuItem("Quit")) flags.doLoop = false;
         ImGui::EndMenu();
       }
@@ -361,7 +584,7 @@ public:
               NewEmptyName = "Empty" + std::to_string(++i));
             //std::string NewEmptyName = "Empty" + std::to_string(i);
             std::shared_ptr<GLScene> NewScene;
-            NewScene.reset(new GLScene());
+            NewScene.reset(new GLScene(logobj));
             SceneLibrary.emplace(NewEmptyName,NewScene);
             NewScene->ImportWorldOptions(
               DefaultSkyboxVAO, DefaultAABBVAO,
@@ -385,6 +608,9 @@ public:
 
 		if ( flags.showDemoMenu )
 			ImGui::ShowDemoWindow(&flags.showDemoMenu);
+
+    if ( flags.isShowingLog )
+      VisualLog.Draw("Program Log",&flags.isShowingLog);
 
     bool isRelMouseMode = SDL_GetRelativeMouseMode() == SDL_TRUE;
     ImGui::SetNextWindowCollapsed(isRelMouseMode,ImGuiCond_Always);
@@ -496,9 +722,9 @@ public:
     auto ImportedScene = SceneLoader->Retrieve();
     if (ImportedScene.second)
     {
-      std::cout << "Retrieve took " <<
+      log << "Retrieve took " <<
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginRetrieve).count()
-        << " milliseconds" << std::endl;
+        << " milliseconds" << libQ::VALUEV;
       BeginRetrieve = std::chrono::steady_clock::now();
 
       //GLScene *tempptr = new GLScene(); 
@@ -511,9 +737,9 @@ public:
           DefaultSkyboxShader,DefaultShader);
         ImportedScene.second->GLInit();
 
-        std::cout << "Scene GLInit() took " <<
+        log << "Scene GLInit() took " <<
           std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginRetrieve).count()
-          << " milliseconds" << std::endl;
+          << " milliseconds" << libQ::VALUEV;
         BeginRetrieve = std::chrono::steady_clock::now();
 
         /*for (auto &x : ImportedScene.second->models)
@@ -521,14 +747,14 @@ public:
           //x.second->shader = ImportedScene.second->DefaultShader;
           x.second->GLInit();
         }
-        std::cout << "Model GLInit() took " <<
+        std:cout << "Model GLInit() took " <<
           std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginRetrieve).count()
           << " milliseconds" << std::endl;*/
         //tempptr->ImportScene(ImportedScene.second.get());
       }
       else
       {
-        std::cout << "Imported Scene already exists!" << std::endl;
+        log << "Imported Scene already exists!" << libQ::ERROR;
       }
     }
 
@@ -541,9 +767,21 @@ public:
 		return flags.doLoop;
 	}
 
+  void PrintCallback(const std::string output)
+  {
+    //std::cout << output << std::flush;
+    VisualLog.AddLog("%s",output.c_str());
+  }
+
+  void LogFileCallback(const std::string output)
+  {
+    if (LogFile) LogFile << output << std::flush;
+  }
+
 private:
 	void pollInput()
 	{
+    auto log = logobj("pollInput",libQ::DELAYPRINTFUNCTION);
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
@@ -674,11 +912,13 @@ private:
 		bool doLoop;
 		bool showDemoMenu;
 		bool showObjectManager;
+    bool isShowingLog;
 	} flags;
 
 	SDL_Window *window;
 	SDL_GLContext glcontext;
   ImGui::FileBrowser myFileBrowser;
+  ExampleAppLog VisualLog;
 
 	float fontSize;
 
@@ -695,6 +935,8 @@ private:
   float previous_min_fps, min_fps, previous_max_fps, max_fps;
   std::chrono::steady_clock::time_point fps_start;
 
+  std::ofstream LogFile;
+
 	std::shared_ptr<GLScene> world;
   std::unordered_map<std::string,std::shared_ptr<GLScene>> SceneLibrary;
 	std::unique_ptr<Origin> origin;
@@ -705,6 +947,8 @@ private:
   SharedTex DefaultSkyboxTex;
   //SharedVBO DefaultSkyboxVBO, DefaultAABBVBO;
   std::shared_ptr<GLSceneLoader> SceneLoader;
+
+  libQ::log logobj;
 };
 
 int main()

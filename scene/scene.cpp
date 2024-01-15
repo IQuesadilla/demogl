@@ -1,5 +1,4 @@
 #include "scene.h"
-#include <iostream>
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -17,14 +16,18 @@ void ImPrintMat(glm::mat4 matrix)
   ImGui::Text("%6.3f,%6.3f,%6.3f,%6.3f",matrix[0][3],matrix[1][3],matrix[2][3],matrix[3][3]);
 }
 
-GLScene::GLScene()
+GLScene::GLScene(libQ::log _logobj)
 {
+  logobj = _logobj;
+  logobj.setClass("GLScene");
+  logobj("GLScene");
   Init();
   //if (run_init) GLInit();
 }
 
 void GLScene::Init()
 {
+  logobj("Init");
   selectClosest = false;
   //SkyboxTexID = 0;
   //SkyboxVAO = 0;
@@ -44,6 +47,7 @@ void GLScene::ImportWorldOptions(
 //  SharedVBO ImportSkyboxVBO, SharedVBO ImportAABBVBO,
   std::shared_ptr<_shader> ImportSkyboxShader, std::shared_ptr<_shader> ImportDefaultShader)
 {
+  logobj("ImportWorldOptions");
   if (!SkyboxVAO) SkyboxVAO = ImportSkyboxVAO;
   if (!SkyboxTexID) SkyboxTexID = ImportSkyboxTex;
 //  SkyboxVBO = ImportSkyboxVBO;
@@ -59,13 +63,14 @@ void GLScene::ImportWorldOptions(
 
 void GLScene::GLInit()
 {
+  auto log = logobj("GLInit");
   std::chrono::steady_clock::time_point BeginInit = std::chrono::steady_clock::now(); 
   if (SkyboxShader)
   {
     SkyboxShader->compile();
-    std::cout << "-> Skybox shader compile took " <<
+    log << "Skybox shader compile took " <<
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
-      << " milliseconds" << std::endl;
+      << " milliseconds" << libQ::VALUEVV;
     BeginInit = std::chrono::steady_clock::now();
   }
 
@@ -73,32 +78,32 @@ void GLScene::GLInit()
   {
     SkyboxVAO.Generate();
     auto image = cv::imread("assets/skybox.png");
-    std::cout << "-> Skybox image load took " <<
+    log << "Skybox image load took " <<
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
-      << " milliseconds" << std::endl;
+      << " milliseconds" << libQ::VALUEVV;
     BeginInit = std::chrono::steady_clock::now();
  
     UpdateSkybox(cv::imread("assets/skybox.png"));
-    std::cout << "-> UpdateSkybox took " <<
+    log << "UpdateSkybox took " <<
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
-      << " milliseconds" << std::endl;
+      << " milliseconds" << libQ::VALUEVV;
     BeginInit = std::chrono::steady_clock::now();
   }
 
   if (DefaultShader)
   {
     DefaultShader->compile();
-    std::cout << "-> AABB shader compile took " <<
+    log << "AABB shader compile took " <<
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
-      << " milliseconds" << std::endl;
+      << " milliseconds" << libQ::VALUEVV;
     BeginInit = std::chrono::steady_clock::now();
-    //std::cout << DefaultShader.getErrors();
+    //std:cout << DefaultShader.getErrors();
   }
 
   if (!AABBVAO)
   {
     AABBVAO.Generate();
-    std::cout << "-> AABB VAO generated" << std::endl;
+    log << "AABB VAO generated" << libQ::NOTEVV;
   }
 
   for (auto &x : models)
@@ -107,13 +112,14 @@ void GLScene::GLInit()
     if (!x.second->shader) x.second->shader = DefaultShader;
     x.second->GLInit();
   }
-  std::cout << "-> All models GLInit() took " <<
+  log << "All models GLInit() took " <<
     std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - BeginInit).count()
-    << " milliseconds" << std::endl;
+    << " milliseconds" << libQ::VALUEV;
 }
 
 void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
 {
+  auto log = logobj("Draw",libQ::DELAYPRINTFUNCTION);
   std::list<std::pair<std::shared_ptr<Renderable>, float> > sorted;
   std::pair<std::shared_ptr<Renderable>, float> closestHovered
     = std::make_pair(nullptr, 1000.0f);
@@ -512,14 +518,15 @@ void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
 
 void GLScene::UpdateSkybox(cv::Mat skybox)
 {
+  auto log = logobj("UpdateSkybox");
   //if (SkyboxVAO == 0)
   //{
   //  glGenVertexArrays(1, &SkyboxVAO);
-  //  std::cout << "Generating VAO" << std::endl;
+  //  std:cout << "Generating VAO" << std::endl;
   //}
   glBindVertexArray(SkyboxVAO);
 
-  std::cout << "SKYBOX VAO -> " << SkyboxVAO << std::endl;
+  log << "SKYBOX VAO: " << (int)SkyboxVAO << libQ::VALUEDEBUG;
 
   if (SkyboxVBO == 0)
   {
@@ -595,11 +602,12 @@ void GLScene::UpdateSkybox(cv::Mat skybox)
 
 GLScene::~GLScene()
 {
-  ;
+  auto log = logobj("~GLScene");
 }
 
 void GLScene::ImportScene(GLScene *scene)
 {
+  auto log = logobj("ImportScene");
   ImportModelsFrom(scene);
   if (SceneBase.size() > 0)
   {
@@ -624,13 +632,14 @@ void GLScene::ImportScene(GLScene *scene)
   if (Info.Author.length() > 0) Info.Author.append(" ; ");
   Info.Author.append(scene->Info.Author);
   Info.ImpliedTransform *= scene->Info.ImpliedTransform;
-  std::cout << "Successfully Imported Scene" << std::endl;
+  log << "Successfully Imported Scene" << libQ::NOTEV;
 }
 
 void GLScene::ImportModelsFrom(GLScene *scene)
 {
+  auto log = logobj("ImportModelsFrom");
   models.insert(scene->models.begin(), scene->models.end());
-  std::cout << "Successfully imported all models from scene" << std::endl;
+  log << "Successfully imported all models from scene" << libQ::NOTEVV;
 }
 
 void GLScene::ImportRenderablesFrom(GLScene *scene)
@@ -640,9 +649,10 @@ void GLScene::ImportRenderablesFrom(GLScene *scene)
 
 void GLScene::ImportRenderablesFromInto(GLScene *scene, std::vector<std::shared_ptr<Renderable>> *ChildVector)
 {
+  auto log = logobj("ImportRenderablesFromInto");
   renderables.insert(scene->renderables.begin(),scene->renderables.end());
   ChildVector->insert(ChildVector->end(),scene->SceneBase.begin(),scene->SceneBase.end());
-  std::cout << "Successfully imported all renderables from scene" << std::endl;
+  log << "Successfully imported all renderables from scene" << libQ::NOTEVV;
 } 
 
 std::pair<
@@ -650,6 +660,7 @@ std::pair<
   std::vector<std::shared_ptr<Renderable>>::iterator>
   GLScene::FindSiblingVectorOfChild(std::shared_ptr<Renderable> child)
 {
+  auto log = logobj("FindSiblingVectorOfChild",libQ::DELAYPRINTFUNCTION);
   bool isChild = false;
   std::pair<
     std::vector<std::shared_ptr<Renderable>>*,
@@ -701,6 +712,7 @@ void GLScene::DebugSelectRenderable(std::shared_ptr<Renderable> renderable)
 
 void GLScene::DebugDrawAABB(std::shared_ptr<Renderable> renderable, glm::mat4 view_projection, glm::vec3 CameraPos)
 {
+  auto log = logobj("DebugDrawAABB",libQ::DELAYPRINTFUNCTION);
   std::array<std::array<glm::vec3,2>,12> lines = {{
     // Front face
     {glm::vec3
@@ -857,6 +869,6 @@ void GLScene::DebugDrawAABB(std::shared_ptr<Renderable> renderable, glm::mat4 vi
 
   GLenum err = glGetError();
   if (err != GL_NO_ERROR) {
-    std::cout << "AABB Wireframe Error:" << err << std::endl;
+    log << "AABB Wireframe Error:" << (int)err << libQ::ERROR;
   }
 }
