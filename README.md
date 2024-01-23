@@ -4,25 +4,13 @@
 ```bash
 git submodule init
 git submodule update
-cd vcpkg
-git pull origin master
-```
-
-## Install libraries
-```bash
-./vcpkg/bootstrap-vcpkg.sh
-./vcpkg/vcpkg install sdl2
-./vcpkg/vcpkg install glm
-./vcpkg/vcpkg install "imgui[core,opengl3-binding,sdl2-binding,freetype]"
-./vcpkg/vcpkg install opencv
-./vcpkg/vcpkg integrate install
 ```
 
 ## To Build
 ```bash
 cmake -B build/ -S . 
-cmake --build build/
-./build/split
+cmake --build build/ --target [sdlgl,sdlglimgui,sdlglimguitextured,split]
+./build/[sdlgl,sdlglimgui,sdlglimguitextured,split]
 ```
 
 ## Every way something has failed
