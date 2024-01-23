@@ -2,13 +2,6 @@
 #include "glad/glad.h"
 //#include "glad/khrplatform.h"
 #include "SDL.h"
-#if defined __has_include
-    #if __has_include (<SDL_opengl.h>)
-        #include <SDL_opengl.h>
-    #else
-        #include <GL/gl.h>
-    #endif
-#endif
 #include "shader.h"
 #include "camera.h"
 #include <iostream>
@@ -243,6 +236,8 @@ public:
 
 		SDL_SetMainReady();
 
+    logobj = libQ::log(libQ::DEFAULT);
+
 		start = std::chrono::steady_clock::now();
     logobj.setClass("gldemo");
     logobj[1].setVerbosity(libQ::DEBUG);
@@ -256,7 +251,7 @@ public:
       logobj[2].setCallback(*this,&gldemo::LogFileCallback);
     } else std::cerr << "Failed to open log file" << std::endl;
 
-    auto log = logobj("gldemo",libQ::DELAYPRINTFUNCTION);
+    auto log = logobj("gldemo");
 
 		// Initialize Video and Events on SDL, no need to initialize any other subsystems
 		if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) < 0 )
@@ -264,6 +259,14 @@ public:
 			std::cerr << "Failed to init SDL! SDL: " << SDL_GetError() << std::endl;
 			return;
 		}
+
+    log << "Video Drivers Available:";
+    int DriverCount = SDL_GetNumVideoDrivers();
+    for (int i = 0; i < DriverCount; ++i) {
+        log << " " << SDL_GetVideoDriver(i);
+    }
+    log << libQ::NOTEV;
+    log << "Current Video Driver: " << SDL_GetCurrentVideoDriver() << libQ::NOTEV;
 
 		// Use OpenGL v3.3 core - GLSL: #version 330 core
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -277,12 +280,12 @@ public:
 		#endif
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-		window = SDL_CreateWindow(	"gldemo", 					// Window Title
+		window.Attach( SDL_CreateWindow(	"gldemo", 					// Window Title
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global X Position
 									SDL_WINDOWPOS_UNDEFINED,	// Starting Global Y Position
 									WWIDTH,						// Window Width
 									WHEIGHT,					// Window Height
-									SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_MOUSE_CAPTURE | SDL_WINDOW_RESIZABLE );
+									SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_MOUSE_CAPTURE | SDL_WINDOW_RESIZABLE ) );
 
 		// window will be NULL if CreateWindow failed
 		if( window == NULL )
@@ -290,9 +293,10 @@ public:
       std::cerr << "Window could not be created! SDL Error: " << SDL_GetError() << std::endl;
       return;
     }
+    //window.Attach(twindow);
 
 		// start OpenGL within the SDL window, returns NULL if failed
-		glcontext = SDL_GL_CreateContext( window );
+		glcontext.Attach (SDL_GL_CreateContext( window ));
 		if( glcontext == NULL )
 		{
       std::cerr << "OpenGL context could not be created! SDL Error: " << SDL_GetError() << std::endl;
@@ -333,10 +337,6 @@ public:
     log << "Creating camera object" << libQ::NOTEDEBUG;
 		// Create a new camera and set it's default position to (x,y,z)
 		// +z is towards you, -z is away from you
-		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
-		camera->setViewSize(WWIDTH,WHEIGHT);
-		camera->MovementSpeed = 0.01f;
-		camera->BinarySensitivity = 2.0f;
 
     log << "Enabling OpenGL Depth Test" << libQ::NOTEDEBUG;
 		// Enable depth test - makes things in front appear in front
@@ -395,7 +395,7 @@ public:
 		ImGui::StyleColorsDark();
 		ImGui_ImplSDL2_InitForOpenGL(window, glcontext);
     	ImGui_ImplOpenGL3_Init("#version 330 core");
-		ImFontConfig font_cfg;
+		ImFontConfig font_cfg = {};
 		font_cfg.OversampleH = 2;
 		font_cfg.OversampleV = 2;
 		//font_cfg.RasterizerFlags |= ImGuiFreeType::ForceAutoHint;
@@ -424,6 +424,7 @@ public:
 		log << "Allocated Depth Buffer Size: " << depthBufferSize << libQ::VALUEVV;
 
 		fontSize = 1.0f;
+    FOV = 1.0f;
 
 		//for (auto &x : fps_array)
 		//	x = 1.0f;
@@ -448,8 +449,8 @@ public:
 	{
     auto log = logobj("gldemo::~gldemo");
 		// Properly shutdown OpenGL and destroy the window
-		SDL_GL_DeleteContext(glcontext);
-		SDL_DestroyWindow(window);
+		//SDL_GL_DeleteContext(glcontext);
+		//SDL_DestroyWindow(window);
 	}
 
 	void runOnce()
@@ -468,13 +469,13 @@ public:
 		start = std::chrono::steady_clock::now();
 
 		// Calculate new matrices given the time since the last frame
-		camera->InputUpdate(deltaTime);
+		world->camera->InputUpdate(deltaTime);
 
 		// Projection and view are the same per model because they are affected by the camera
 		//glMatrixMode(GL_PROJECTION);
-    camera->BuildProjectionMatrix(0.5f,870.f); // Needs to run every frame
-		glm::mat4 projection = camera->ProjectionMatrix;
-		glm::mat4 view = camera->GetViewMatrix();
+    world->camera->BuildProjectionMatrix(AspectRatio*FOV,0.5f,870.f); // Needs to run every frame
+		glm::mat4 projection = world->camera->ProjectionMatrix;
+		glm::mat4 view = world->camera->GetViewMatrix();
 
 		glDepthMask( GL_TRUE );
 
@@ -484,7 +485,7 @@ public:
 
 		if (cursor->getColors())
 		{
-			cursor->render(projection, camera->GetRotViewMatrix(), 0.01f);
+			cursor->render(projection, world->camera->GetRotViewMatrix(), 0.01f);
 		} else {
 			cursor->render(projection, glm::lookAt({1.0f,0.0f,0.0f},glm::vec3(0.0f),{0.0f,0.0f,1.0f}), 0.01f);
 		}
@@ -524,8 +525,13 @@ public:
 		    bool tempCursorColorState = cursor->getColors();
 		    if (ImGui::MenuItem("Colored Cursor",NULL,tempCursorColorState)) cursor->setColors(!tempCursorColorState);
 
-        ImGui::DragFloat("Font Size", &fontSize, 0.01f);
-		    ImGui::SetWindowFontScale(fontSize);
+        // TODO: Resizeable fonts
+        //if (ImGui::DragFloat("Font Size", &fontSize, 0.01f, 0.1f, 5.f)) {
+        //  ImGui::GetStyle().ScaleAllSizes(fontSize / oldsize);
+        //  }
+		    //ImGui::SetWindowFontScale(fontSize);
+
+        ImGui::DragFloat("FOV",&FOV,0.01,0.1f,10.0f);
 
 		    bool vsync_check = (SDL_GL_GetSwapInterval() != 0);
 		    if (ImGui::MenuItem("VSync",NULL,vsync_check))
@@ -626,7 +632,7 @@ public:
 
     ImGui::Text("Press ESCAPE to toggle menu");
 
-		world->Draw(deltaTime, camera);
+		world->Draw(deltaTime);
 
 		ImGui::End();
     myFileBrowser.Display();
@@ -642,7 +648,7 @@ public:
 												ImGuiWindowFlags_NoNav );
 		ImGui::SetWindowPos({0,20});
 
-		ImGui::SetWindowFontScale(fontSize);
+		//ImGui::SetWindowFontScale(fontSize);
 
 		ImGui::SetWindowSize( ImGui::GetIO().DisplaySize );
 
@@ -672,10 +678,11 @@ public:
 		//else ++fps_count;
 
 		ImGui::Text("FPS: %8.3f,%8.3f,%8.3f", previous_fps,previous_min_fps,previous_max_fps);
-		ImGui::Text("Camera: %.3f,%.3f,%.3f", camera->Position.x, camera->Position.y, camera->Position.z);
-		ImGui::Text("Camera Direction: %.3f,%.3f,%.3f", camera->Front.x, camera->Front.y, camera->Front.z);
-		ImGui::Text("Yaw: %.3f, Pitch: %.3f", camera->Yaw, camera->Pitch);
-		ImGui::Text("Zoom: %.3f", camera->Zoom);
+		ImGui::Text("Camera: %.3f,%.3f,%.3f", world->camera->Position.x, world->camera->Position.y, world->camera->Position.z);
+		ImGui::Text("Camera Direction: %.3f,%.3f,%.3f", world->camera->Front.x, world->camera->Front.y, world->camera->Front.z);
+    ImGui::Text("Aspect Ratio: %.3f", AspectRatio);
+		ImGui::Text("Yaw: %.3f, Pitch: %.3f", world->camera->Yaw, world->camera->Pitch);
+		ImGui::Text("Zoom: %.3f", world->camera->Zoom);
 
 		for (auto &cube : world->renderables)
 			if (cube.first->flags.isHovered)
@@ -797,34 +804,34 @@ private:
 					switch (e.key.keysym.sym)
 					{
 					case SDLK_w:
-						camera->ProcessKeyboard(FORWARD,true);
+						world->camera->ProcessKeyboard(FORWARD,true);
 					break;
 					case SDLK_s:
-						camera->ProcessKeyboard(BACKWARD,true);
+						world->camera->ProcessKeyboard(BACKWARD,true);
 					break;
 					case SDLK_d:
-						camera->ProcessKeyboard(RIGHT,true);
+						world->camera->ProcessKeyboard(RIGHT,true);
 					break;
 					case SDLK_a:
-						camera->ProcessKeyboard(LEFT,true);
+						world->camera->ProcessKeyboard(LEFT,true);
 					break;
 					case SDLK_SPACE:
-						camera->ProcessKeyboard(UP,true);
+						world->camera->ProcessKeyboard(UP,true);
 					break;
 					case SDLK_LSHIFT:
-						camera->ProcessKeyboard(DOWN,true);
+						world->camera->ProcessKeyboard(DOWN,true);
 					break;
 					case SDLK_UP:
-						camera->ProcessKeyboard(V_UP,true);
+						world->camera->ProcessKeyboard(V_UP,true);
 					break;
 					case SDLK_DOWN:
-						camera->ProcessKeyboard(V_DOWN,true);
+						world->camera->ProcessKeyboard(V_DOWN,true);
 					break;
 					case SDLK_RIGHT:
-						camera->ProcessKeyboard(V_RIGHT,true);
+						world->camera->ProcessKeyboard(V_RIGHT,true);
 					break;
 					case SDLK_LEFT:
-						camera->ProcessKeyboard(V_LEFT,true);
+						world->camera->ProcessKeyboard(V_LEFT,true);
 					break;
 					}
 				break;
@@ -833,44 +840,44 @@ private:
 					switch (e.key.keysym.sym)
 					{
 					case SDLK_w:
-						camera->ProcessKeyboard(FORWARD,false);
+						world->camera->ProcessKeyboard(FORWARD,false);
 					break;
 					case SDLK_s:
-						camera->ProcessKeyboard(BACKWARD,false);
+						world->camera->ProcessKeyboard(BACKWARD,false);
 					break;
 					case SDLK_d:
-						camera->ProcessKeyboard(RIGHT,false);
+						world->camera->ProcessKeyboard(RIGHT,false);
 					break;
 					case SDLK_a:
-						camera->ProcessKeyboard(LEFT,false);
+						world->camera->ProcessKeyboard(LEFT,false);
 					break;
 					case SDLK_SPACE:
-						camera->ProcessKeyboard(UP,false);
+						world->camera->ProcessKeyboard(UP,false);
 					break;
 					case SDLK_LSHIFT:
-						camera->ProcessKeyboard(DOWN,false);
+						world->camera->ProcessKeyboard(DOWN,false);
 					break;
 					case SDLK_UP:
-						camera->ProcessKeyboard(V_UP,false);
+						world->camera->ProcessKeyboard(V_UP,false);
 					break;
 					case SDLK_DOWN:
-						camera->ProcessKeyboard(V_DOWN,false);
+						world->camera->ProcessKeyboard(V_DOWN,false);
 					break;
 					case SDLK_RIGHT:
-						camera->ProcessKeyboard(V_RIGHT,false);
+						world->camera->ProcessKeyboard(V_RIGHT,false);
 					break;
 					case SDLK_LEFT:
-						camera->ProcessKeyboard(V_LEFT,false);
+						world->camera->ProcessKeyboard(V_LEFT,false);
 					break;
 					}
 				break;
 
 				case SDL_MOUSEMOTION:
-					camera->ProcessMouseMovement(e.motion.xrel,e.motion.yrel,true);
+					world->camera->ProcessMouseMovement(e.motion.xrel,e.motion.yrel,true);
 				break;
 
 				case SDL_MOUSEWHEEL:
-					camera->ProcessMouseScroll(e.wheel.preciseY);
+					world->camera->ProcessMouseScroll(e.wheel.preciseY);
 				break;
 
 				case SDL_MOUSEBUTTONDOWN:
@@ -898,7 +905,7 @@ private:
 			case SDL_WINDOWEVENT:
 				int w,h;
 				SDL_GL_GetDrawableSize(window,&w,&h);
-				camera->setViewSize(w,h);
+        AspectRatio = Camera::setViewSize(w,h);
 			break;
 
 			case SDL_QUIT:
@@ -915,12 +922,16 @@ private:
     bool isShowingLog;
 	} flags;
 
-	SDL_Window *window;
-	SDL_GLContext glcontext;
+  //glcontext is guaranteed to be destoryed before window
+  SharedSDLWindow window;
+  SharedSDLGLContext glcontext;
+
   ImGui::FileBrowser myFileBrowser;
   ExampleAppLog VisualLog;
 
 	float fontSize;
+  float AspectRatio;
+  float FOV;
 
 	ImColor clear_color;
 
@@ -941,7 +952,6 @@ private:
   std::unordered_map<std::string,std::shared_ptr<GLScene>> SceneLibrary;
 	std::unique_ptr<Origin> origin;
 	std::unique_ptr<Origin> cursor;
-	std::shared_ptr<Camera> camera;
   std::shared_ptr<_shader> DefaultShader, DefaultSkyboxShader;
   SharedVAO DefaultSkyboxVAO, DefaultAABBVAO;
   SharedTex DefaultSkyboxTex;

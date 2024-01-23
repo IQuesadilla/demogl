@@ -36,7 +36,7 @@ public:
 //      SharedVBO ImportSkyboxVBO, SharedVBO ImportAABBVBO,
       std::shared_ptr<_shader> ImportSkyboxShader, std::shared_ptr<_shader> ImportDefaultShader);
   void GLInit();
-  void Draw(float deltaTime, std::shared_ptr<Camera> camera);
+  void Draw(float deltaTime);
 
   void UpdateSkybox(cv::Mat skybox);
 
@@ -65,6 +65,7 @@ public:
   SharedVAO AABBVAO, SkyboxVAO;
   bool selectClosest, itemWasToggledOpen;
 
+	std::shared_ptr<Camera> camera;
   libQ::log logobj;
   AssetData Info;
 };

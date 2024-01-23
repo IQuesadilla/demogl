@@ -39,3 +39,5 @@
 demo
 build/
 .cache/
+vcpkg/
+.vscode/

@@ -1,7 +1,5 @@
-
-
+#include "glad.h"
 #include "SDL.h"
-#include <SDL_opengl.h>
 #include "shader.h"
 #include "camera.h"
 #include <iostream>
@@ -79,7 +77,13 @@ public:
 		// This should happen by default, but just to be sure, attach the glcontext to the window
 		SDL_GL_MakeCurrent(window, glcontext);
 
-		std::cout << "Successfully configured OpenGL" << std::endl;
+		std::cout << "Successfully created OpenGL context" << std::endl;
+
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+		{
+      std::cerr << "Failed loading glad" << std::endl;
+			return;
+		}
 
 		// Load window icon and set if successfully loaded
 		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
@@ -96,9 +100,11 @@ public:
 		// Create a new camera and set it's default position to (x,y,z)
 		// +z is towards you, -z is away from you
 		camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
-		camera->setViewSize(WWIDTH,WHEIGHT);
+    //AspectRatio = Camera::setViewSize(WWIDTH,WHEIGHT);
 		camera->MovementSpeed = 0.01f;
 		camera->BinarySensitivity = 4.0f;
+
+    std::cout << "Created Camera" << std::endl;
 
 		// Enable depth test - makes things in front appear in front
 		glEnable(GL_DEPTH_TEST);
@@ -143,8 +149,11 @@ public:
 			(void*)0            // array buffer offset
 		);
 
+    std::cout << "Setup GL buffers" << std::endl;
+
 		// Load and compile the basic demo shaders, returns true if error
-		if ( shader.load("assets/basic_colored.vert","assets/basic_colored.frag") )
+		shader.load("assets/basic_colored.vert","assets/basic_colored.frag");
+    if (!shader.compile())
 		{
 			std::cout << "Failed to load shaders!" << std::endl << shader.getErrors() << std::endl;
 			return;
@@ -157,6 +166,8 @@ public:
 		SDL_ShowWindow(window);
 
 		rot = 0.0f;
+
+  std::cout << "Finished creation" << std::endl;
 
 		// If here, initialization succeeded and loop should be enabled
 		flags.doLoop = true;
@@ -189,7 +200,8 @@ public:
 		camera->InputUpdate(deltaTime);
 
 		// Projection and view are the same per model because they are affected by the camera
-		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,300.0f);
+      camera->BuildProjectionMatrix(AspectRatio,0.01f,300.f);
+    glm::mat4 projection = camera->ProjectionMatrix;
 		glm::mat4 view = camera->GetViewMatrix();
 		glm::mat4 model = glm::mat4(1.0f);
 
@@ -376,7 +388,7 @@ private:
 			case SDL_WINDOWEVENT:
 				int w,h;
 				SDL_GL_GetDrawableSize(window,&w,&h);
-				camera->setViewSize(w,h);
+        AspectRatio = Camera::setViewSize(w,h);
 			break;
 
 			case SDL_QUIT:
@@ -404,6 +416,7 @@ private:
 	std::shared_ptr<Camera> camera;
 	_shader shader;
 	float rot;
+  float AspectRatio;
 };
 
 int main()

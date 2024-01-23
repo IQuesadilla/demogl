@@ -43,10 +43,10 @@ Window::Window() : Model()
     int apiID = cv::CAP_ANY;
 
     cap.open(deviceID, apiID);
-    cap.set(cv::CAP_PROP_CONVERT_RGB,1.0);
+    //cap.set(cv::CAP_PROP_CONVERT_RGB,1.0);
 
     isEnclosed = false;
-    //TCount = 2;
+    TCount = 2;
     Info.Title = "window";
     GLInit();
 
@@ -59,24 +59,20 @@ Window::Window() : Model()
 
 void Window::update(bool DoDebugDraw)
 {
-    if (DoDebugDraw)
-    {
-        //ImGui::SeparatorText("Camera Manager");
-        if (ImGui::SliderFloat("Contrast", &CamValues.contrast, 0.0f, 255.0f)) cap.set(cv::CAP_PROP_CONTRAST,CamValues.contrast);
-        if (ImGui::SliderFloat("Exposure", &CamValues.exposure, 0.0f, 255.0f)) cap.set(cv::CAP_PROP_EXPOSURE,CamValues.exposure);
-    }
+  if (DoDebugDraw)
+  {
+    //ImGui::SeparatorText("Camera Manager");
+    //if (ImGui::SliderFloat("Contrast", &CamValues.contrast, 0.0f, 255.0f)) cap.set(cv::CAP_PROP_CONTRAST,CamValues.contrast);
+    //if (ImGui::SliderFloat("Exposure", &CamValues.exposure, 0.0f, 255.0f)) cap.set(cv::CAP_PROP_EXPOSURE,CamValues.exposure);
+  }
 
-    if (cap.isOpened())
-    {
-        if (cap.grab())
-        {
-            bind();
-            if (cap.retrieve(frame) && !frame.empty())
-                setTex(frame);
-            else
-                setTex(cv::Mat(20, 20, CV_8UC3, cv::Scalar(0, 0, 0)));
-        }
-    }
+  bind();
+  if (cap.isOpened() &&
+      cap.grab() &&
+      cap.retrieve(frame) &&
+      !frame.empty())
+        setTex(frame);
+  else setTex(cv::Mat(20, 20, CV_8UC3, cv::Scalar(0, 0, 0)));
 }
 
 Window::Window(Window *_new)

@@ -16,13 +16,14 @@ Model::~Model()
   //glDeleteBuffers(1,&uvbuff);
   //glDeleteBuffers(1,&vertbuff);
   //glDeleteVertexArrays(1,&VAO);
+  if (_UnloadedModel) delete _UnloadedModel;
 }
 
 void Model::GLInit()
 {
   if (!_UnloadedModel) return;
-  updateModel(_UnloadedModel->vertices);
-  updateIndices(_UnloadedModel->indices);
+  if (_UnloadedModel->vertices.size() > 0) updateModel(_UnloadedModel->vertices);
+  if (_UnloadedModel->indices.size() > 0) updateIndices(_UnloadedModel->indices);
 
   delete _UnloadedModel;
   _UnloadedModel = nullptr;

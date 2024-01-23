@@ -1,25 +1,15 @@
-
-
 #include "SDL.h"
-#include <SDL_opengl.h>
 #include "shader.h"
 #include "camera.h"
 #include <iostream>
 #include <memory>
 #include <vector>
-#include <map>
+//#include <map>
 #include <list>
 #include <chrono>
 
 #include <glm.hpp>
 #include <gtx/quaternion.hpp>
-
-//#define STB_TRUETYPE_IMPLEMENTATION
-//#define STB_RECT_PACK_IMPLEMENTATION
-
-//#include <stb_truetype.h>
-
-//#include <stb_rect_pack.h>
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -33,6 +23,24 @@
 #define AA_LEVEL 0
 #define WWIDTH 640
 #define WHEIGHT 480
+
+static const float originVerts[] = {
+    0.0f, 0.0f, 0.0f,
+    1.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f,
+    0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 1.0f
+};
+
+static const float originColors[] = {
+    1.0f, 0.0f, 0.0f,
+    1.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f,
+    0.0f, 1.0f, 0.0f,
+    0.0f, 0.0f, 1.0f,
+    0.0f, 0.0f, 1.0f,
+};
 
 bool RaycastRotatedCube(const glm::vec3& cubeExtents, const glm::mat4& cubeTransform, const glm::vec3& rayOrigin, const glm::vec3& rayDir)
 {
@@ -124,13 +132,13 @@ public:
 		flags.isSelected = false;
 		flags.isClosest = false;
 
-		shader = new _shader();
+		shader = new _shader("assets/basic_colored.vert","assets/basic_colored.frag");
 		// Load and compile the basic demo shaders, returns true if error
-		if ( shader->load("assets/basic_colored.vert","assets/basic_colored.frag") )
+		/*if ( shader->load() )
 		{
 			std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
 			return;
-		}
+		}*/
 	}
 
 	myCube(myCube *temp)
@@ -321,6 +329,12 @@ public:
 
 		SDL_GL_MakeCurrent(window, glcontext);
 
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+		{
+      std::cerr << "Failed loading glad" << std::endl;
+			return;
+		}
+
 		// Load window icon and set if successfully loaded
 		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
 		if (icon == NULL)
@@ -340,12 +354,12 @@ public:
 		camera->MovementSpeed = 0.01f;
 		camera->BinarySensitivity = 2.0f;
 
-		origin.reset( new _shader() );
-		if ( origin->load("assets/origin.vert","assets/origin.frag") )
+		origin.reset( new _shader("assets/origin.vert","assets/origin.frag") );
+		/*if ( origin->load() )
 		{
 			std::cout << "Failed to load shaders!" << std::endl << origin->getErrors() << std::endl;
 			return;
-		}
+		}*/
 
 		glGenVertexArrays(1,&originVAO);
 		glBindVertexArray(originVAO);
@@ -420,7 +434,8 @@ public:
 		camera->InputUpdate(deltaTime);
 
 		// Projection and view are the same per model because they are affected by the camera
-		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,100.0f);
+		camera->BuildProjectionMatrix(AspectRatio,0.01f,100.0f);
+    glm::mat4 projection = camera->ProjectionMatrix;
 		glm::mat4 view = camera->GetViewMatrix();
 
 		glDepthMask( GL_TRUE );
@@ -595,7 +610,7 @@ public:
 												ImGuiWindowFlags_NoNav );
 		ImGui::SetWindowPos({0,0});
 
-		ImGui::SetWindowSize( ImGui::GetIO().DisplaySize );
+		ImGui::SetWindowSize( WindowSize ); //ImGui::GetIO().DisplaySize );
 
 		ImGui::Text("FPS: %.3f", 1000.0f/deltaTime);
 		ImGui::Text("Camera: %.3f,%.3f,%.3f", camera->Position.x, camera->Position.y, camera->Position.z);
@@ -604,12 +619,12 @@ public:
 		ImGui::Text("Zoom: %.3f", camera->Zoom);
 
 		std::string crosshair = "   |   \n---+---\n   |   ";
-		auto windowSize = ImGui::GetWindowSize();
+		auto windowSize = WindowSize;//ImGui::GetWindowSize();
 		auto textSize   = ImGui::CalcTextSize(crosshair.c_str());
 
 		ImGui::SetCursorPosX((windowSize.x - textSize.x) * 0.5f);
 		ImGui::SetCursorPosY((windowSize.y - textSize.y) * 0.5f);
-		ImGui::Text(crosshair.c_str());
+		ImGui::Text("%s",crosshair.c_str());
 
 		ImGui::End();
 
@@ -753,7 +768,9 @@ private:
 			case SDL_WINDOWEVENT:
 				int w,h;
 				SDL_GL_GetDrawableSize(window,&w,&h);
-				camera->setViewSize(w,h);
+				AspectRatio = camera->setViewSize(w,h);
+        WindowSize.x = w; WindowSize.y = h;
+        //std::cout << "Set Window Size: {" << h << ',' << w << "}" << std::endl;
 			break;
 
 			case SDL_QUIT:
@@ -774,6 +791,8 @@ private:
 	SDL_GLContext glcontext;
 
 	ImColor clear_color;
+  float AspectRatio;
+  ImVec2 WindowSize;
 
 	std::chrono::steady_clock::time_point start;
 

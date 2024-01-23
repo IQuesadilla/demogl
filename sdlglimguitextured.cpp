@@ -1,14 +1,13 @@
 
 
 #include "SDL.h"
-#include <SDL_opengl.h>
 #include "origin/origin.h"
-#include "shader/shader.h"
-#include "camera/camera.h"
+#include "shader.h"
+#include "camera.h"
 #include <iostream>
 #include <memory>
 #include <vector>
-#include <map>
+//#include <map>
 #include <list>
 #include <chrono>
 
@@ -134,7 +133,7 @@ public:
 		// Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
 		glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
 		glVertexAttribPointer(
-			1,                  // location
+			2,                  // location
 			2,                  // size (per vertex)
 			GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
 			GL_FALSE,           // is normalized*
@@ -229,9 +228,10 @@ public:
 
 		// Use shader "shader" and give it all 3 uniforms
 		shader->use();
-		shader->setMat4("model",model);				// GLSL: uniform mat4 model;
-		shader->setMat4("view",view);				// GLSL: uniform mat4 view;
-		shader->setMat4("projection",projection);	// GLSL: uniform mat4 projection;
+		//shader->setMat4("model",model);				// GLSL: uniform mat4 model;
+		//shader->setMat4("view",view);				// GLSL: uniform mat4 view;
+		//shader->setMat4("projection",projection);	// GLSL: uniform mat4 projection;
+    shader->setMat4("mvp", projection * view * model );
 
 		if (flags.isClosest)
 			shader->setFloat("alpha",alpha/2);
@@ -241,7 +241,10 @@ public:
 
 		// Enable location 0 and location 1 in the shader
 		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
+		glEnableVertexAttribArray(2);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texbuff);
 
 		shader->setInt("myTextureSampler", 0);
 
@@ -314,10 +317,10 @@ public:
 
 		// window will be NULL if CreateWindow failed
 		if( window == NULL )
-        {
-            printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
-            return;
-        }
+    {
+      printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
+      return;
+    }
 
 		// start OpenGL within the SDL window, returns NULL if failed
 		glcontext = SDL_GL_CreateContext( window );
@@ -328,6 +331,12 @@ public:
 		}
 
 		SDL_GL_MakeCurrent(window, glcontext);
+
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+		{
+      std::cerr << "Failed loading glad" << std::endl;
+			return;
+		}
 
 		// Load window icon and set if successfully loaded
 		SDL_Surface *icon = SDL_LoadBMP("assets/opengl.bmp");
@@ -383,12 +392,12 @@ public:
 			SDL_SetWindowFullscreen(window, myFFlag);
 		#endif
 
-		shader = new _shader();
-		if ( shader->load("assets/basic_textured.vert","assets/basic_textured.frag") )
+		shader = new _shader("assets/basic_textured.vert","assets/basic_textured.frag");
+		/*if ( shader->load() )
 		{
 			std::cout << "Failed to load shaders!" << std::endl << shader->getErrors() << std::endl;
 			return;
-		}
+		}*/
 /*
 		cubes.resize(100*100);
 		for (int i = 0; i < 100*100; ++i)
@@ -430,7 +439,8 @@ public:
 		camera->InputUpdate(deltaTime);
 
 		// Projection and view are the same per model because they are affected by the camera
-		glm::mat4 projection = camera->GetProjectionMatrix(0.01f,300.0f);
+		camera->BuildProjectionMatrix(AspectRatio,0.01f,300.0f);
+    glm::mat4 projection = camera->ProjectionMatrix;
 		glm::mat4 view = camera->GetViewMatrix();
 
 		glDepthMask( GL_TRUE );
@@ -594,7 +604,7 @@ public:
 
 			ImGui::SetCursorPosX((windowSize.x - textSize.x) * 0.5f);
 			ImGui::SetCursorPosY((windowSize.y - textSize.y) * 0.5f);
-			ImGui::Text(crosshair.c_str());
+			ImGui::Text("%s",crosshair.c_str());
 		}
 
 		ImGui::End();
@@ -736,7 +746,7 @@ private:
 			case SDL_WINDOWEVENT:
 				int w,h;
 				SDL_GL_GetDrawableSize(window,&w,&h);
-				camera->setViewSize(w,h);
+				AspectRatio = camera->setViewSize(w,h);
 			break;
 
 			case SDL_QUIT:
@@ -758,6 +768,7 @@ private:
 	SDL_GLContext glcontext;
 
 	float fontSize;
+  float AspectRatio;
 
 	ImColor clear_color;
 

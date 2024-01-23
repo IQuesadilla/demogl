@@ -39,6 +39,11 @@ void GLScene::Init()
   DefaultShader = nullptr;
   SkyboxShader = nullptr;
   Info.ImpliedTransform = glm::mat4(1.f);
+
+  camera.reset(new Camera(glm::vec3(0.0f,0.5f,5.0f)));
+  //camera->setViewSize(WWIDTH,WHEIGHT);
+	camera->MovementSpeed = 0.01f;
+	camera->BinarySensitivity = 2.0f;
 }
 
 void GLScene::ImportWorldOptions(
@@ -117,7 +122,7 @@ void GLScene::GLInit()
     << " milliseconds" << libQ::VALUEV;
 }
 
-void GLScene::Draw(float deltaTime, std::shared_ptr<Camera> camera)
+void GLScene::Draw(float deltaTime)
 {
   auto log = logobj("Draw",libQ::DELAYPRINTFUNCTION);
   std::list<std::pair<std::shared_ptr<Renderable>, float> > sorted;

@@ -1,7 +1,6 @@
 
 #include "glad/glad.h"
 #include "SDL.h"
-#include <SDL_opengl.h>
 #include "shader.h"
 #include "camera.h"
 #include <iostream>
