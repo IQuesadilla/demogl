@@ -33,7 +33,7 @@ public:
   std::vector<float> FloatVector; // For loading 
   std::vector<uint> UIntVector; // For loading indices
   std::shared_ptr<Model> CurrentModel;
-  std::stack<std::shared_ptr<Renderable>> CurrentNode;
+  std::stack<std::shared_ptr<RendNode>> CurrentNode;
 
   enum TagOptions // Every tag, per the COLLADA v1.5 spec
   {

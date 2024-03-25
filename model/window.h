@@ -9,6 +9,7 @@
 #include <map>
 #include <list>
 #include <chrono>
+#include <thread>
 
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -20,17 +21,24 @@
 class Window : public Model
 {
 public:
-    Window();
-    Window(Window *_new);
+  Window();
+  ~Window();
 
-    void update(bool DoDebugDraw);
+  void update(bool DoDebugDraw);
 
 private:
-    cv::VideoCapture cap;
-    cv::Mat frame;
-    
-    struct {
-        float exposure;
-        float contrast;
-    } CamValues;
+  cv::VideoCapture cap;
+ 
+  void ThreadFunc();
+  std::thread CameraThread;
+  bool ShouldRunThread, NewFrame;
+
+  std::mutex FrameMutex;
+  cv::Mat CurrentFrame;
+  float AspectRatio;
+
+  struct {
+    float exposure;
+    float contrast;
+  } CamValues;
 };

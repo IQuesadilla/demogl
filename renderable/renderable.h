@@ -47,7 +47,7 @@ public:
 
     std::shared_ptr<Model> _model;
     std::vector<glm::vec3> TransformedCollisionVerts; // Should be temporary
-    std::vector<std::shared_ptr<Renderable>> Collisions;
+    //std::vector<std::shared_ptr<Renderable>> Collisions;
     void *ModelDataPtr;
 
     struct {

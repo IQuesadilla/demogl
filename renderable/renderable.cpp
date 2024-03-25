@@ -247,7 +247,7 @@ void Renderable::AnimationUpdate(float DeltaTime, glm::mat4 ParentModelMatrix)
     trans += PotentialTranslation;
     scale += PotentialScale;
 
-    glm::mat4 PotentialTransform = ApplyTransforms(ParentModelMatrix * Info.ImpliedTransform,rotAxis,trans,scale);
+  glm::mat4 PotentialTransform = ApplyTransforms(ParentModelMatrix * _model->Info.ImpliedTransform * Info.ImpliedTransform,rotAxis,trans,scale);
 
     TransformedCollisionVerts.clear();
     //TransformedCollisionVerts.resize (_model->CollisionVerts.size() / 3, glm::vec3(0.0f));
@@ -284,7 +284,7 @@ void Renderable::Collide(std::shared_ptr<Renderable> k)
 
 void Renderable::genModelMatrix(glm::mat4 inmodel)
 {
-    _modelmatrix = ApplyTransforms(inmodel * Info.ImpliedTransform,rotAxis,trans,scale);
+    _modelmatrix = ApplyTransforms(inmodel * _model->Info.ImpliedTransform * Info.ImpliedTransform,rotAxis,trans,scale);
 }
 
 void Renderable::updateAABB()

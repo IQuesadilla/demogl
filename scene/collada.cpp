@@ -146,7 +146,7 @@ void COLLADAScene::parsecallback(element e)
       std::string URLStr = Arguments["url"];
       std::string ModelID = URLStr.substr(1,URLStr.length()-1); 
       auto NewNodeModel = models[ModelID];
-      NewNode->setModel(NewNodeModel);
+      NewNode->Node.setModel(NewNodeModel);
     } break;
     case InstanceVisualScene:
       Info.Title.append(Arguments["url"]);
@@ -172,11 +172,11 @@ void COLLADAScene::parsecallback(element e)
           //std:cout << "Number [" << i/4 << "][" << i%4 << "] = " << number << std::endl;
           ++i;
         }
-        CurrentNode.top()->Info.ImpliedTransform = transform;
+        CurrentNode.top()->Node.Info.ImpliedTransform = transform;
       } break;
     case Node:
     {
-      std::shared_ptr<Renderable> NewNode;
+      std::shared_ptr<RendNode> NewNode;
       auto ModelIT = models.find("blank");
       std::shared_ptr<Model> ModelPTR;
       if (ModelIT == models.end())
@@ -184,12 +184,12 @@ void COLLADAScene::parsecallback(element e)
         ModelPTR.reset(new Model());
         models.emplace("blank",ModelPTR);
       } else ModelPTR = ModelIT->second;
-      NewNode.reset(new Renderable(ModelPTR));
+      NewNode.reset(new RendNode(ModelPTR));
       auto ParentNode = CurrentNode.top();
-      if (ParentNode) renderables[ParentNode].push_back(NewNode);
+      if (ParentNode) ParentNode->Children.push_back(NewNode);
       else SceneBase.push_back(NewNode);
       CurrentNode.push(NewNode);
-      renderables.emplace(NewNode,std::vector<std::shared_ptr<Renderable>>());
+      SceneSorted.push_back(std::make_pair(NewNode,0.f));
     } break;
     case P:
     {

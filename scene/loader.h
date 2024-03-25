@@ -14,6 +14,20 @@
 class GLSceneLoader
 {
 public:
+  /*struct Operation {
+    enum {
+      FILE_COLLADA,
+    } op;
+    union U {
+      std::filesystem::path FILE_COLLADA;
+      ~U(){}
+    } data;
+  };*/
+  // TODO: This is commented out for now. Ultimately,
+  // this should be used to create a Queue for any tasks
+  // that simply require a lot of time. Another similar
+  // strucure should exist for the responses.
+
   GLSceneLoader(libQ::log _logobj);
   ~GLSceneLoader();
   void QueueFile(std::filesystem::path FilePath);

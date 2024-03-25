@@ -14,6 +14,7 @@
 #include <gtx/quaternion.hpp>
 
 #include "log.h"
+#include <opencv2/core/utils/logger.hpp>
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -320,6 +321,7 @@ public:
 			glEnable(GL_MULTISAMPLE);
 		#endif
 
+    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_WARNING);
     cv::setNumThreads(1);
 
 		// Load window icon and set if successfully loaded
@@ -664,8 +666,6 @@ public:
     ++fps_count;
 		if (start > fps_start + std::chrono::milliseconds(500))
 		{
-
-		//	current_fps = std::accumulate(fps_array.begin(),fps_array.end(),1.0f) / fps_array.size();
       previous_fps = current_fps / float(fps_count);
       current_fps = 0;
 			fps_count = 0;
@@ -674,7 +674,7 @@ public:
       min_fps = INFINITY;
       max_fps = 0.f;
       fps_start = std::chrono::steady_clock::now();
-		}
+	 	}
 		//else ++fps_count;
 
 		ImGui::Text("FPS: %8.3f,%8.3f,%8.3f", previous_fps,previous_min_fps,previous_max_fps);
@@ -684,11 +684,12 @@ public:
 		ImGui::Text("Yaw: %.3f, Pitch: %.3f", world->camera->Yaw, world->camera->Pitch);
 		ImGui::Text("Zoom: %.3f", world->camera->Zoom);
 
-		for (auto &cube : world->renderables)
-			if (cube.first->flags.isHovered)
+		for (auto &it : world->SceneSorted)
+			if (it.first->Node.flags.isHovered)
 			{
-				ImGui::Text("Looking at: %p", cube.first.get());
-				ImGui::Text("Is Selected: %s", cube.first->flags.isSelected ? "true" : "false" );
+				ImGui::Text("Looking at: %p", it.first.get());
+				ImGui::Text("Is Selected: %s", it.first->Node.flags.isSelected ? "true" : "false" );
+        ImGui::Text("Distance: %.5f", it.second);
 			}
 
 		ImGui::End();
@@ -702,24 +703,27 @@ public:
 		// Swap the internal framebuffer to the screen
 		SDL_GL_SwapWindow(window);
 
-		std::vector<std::shared_ptr<Renderable> > toD;
-		for (auto node = world->renderables.begin(); node != world->renderables.end(); ++node)
-			if (node->first->flags.QueueDestruction)
+		std::vector<std::shared_ptr<GLScene::RendNode> > toD;
+		for (auto it : world->SceneSorted)
+			if (it.first->Node.flags.QueueDestruction)
 			{
-				toD.push_back(node->first);
+				toD.push_back(it.first);
 			}
 
-		for (auto &node : toD)
+		for (auto &it : toD)
 		{
-			auto pnode = world->FindSiblingVectorOfChild(node);
-
+			auto pnode = world->FindSiblingVectorOfChild(it);
 			pnode.first->erase(pnode.second);
 
-			auto &obj = world->renderables[node];
-			if (obj.size() > 0)
-				pnode.first->insert(pnode.first->end(),obj.begin(),obj.end());
+			//auto &obj = world->renderables[node];
+			if (it->Children.size() > 0)
+				pnode.first->insert(pnode.first->end(),it->Children.begin(),it->Children.end());
 
-			world->renderables.erase(node);
+      for (auto potential = world->SceneSorted.begin(); potential != world->SceneSorted.end(); ++potential)
+        if (potential->first == it) {
+			    world->SceneSorted.erase(potential);
+            break;
+        }
 		}
 
     if (SelectedWorld)

@@ -127,18 +127,20 @@ myCube::myCube() : Model()
     doGenerateMipmap = true;
     setIndices(CubeIndices);
     setModel(vertDataVec);
-    setTex(cv::imread("assets/rubix.png"), uvDataVec);
+  auto image = cv::imread("assets/rubix.png");
+  cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
+    setTex(image, uvDataVec);
     GLInit();
 
     //TCount = 12;
     isEnclosed = true;
     Info.Title = "cube";
 }
-
+/*
 myCube::myCube(myCube *_new)
 {
     *this = *_new;
-}
+}*/
 
 /*bool RaycastRotatedCube(const glm::vec3& cubeExtents, const glm::mat4& cubeTransform, const glm::vec3& rayOrigin, const glm::vec3& rayDir)
 {

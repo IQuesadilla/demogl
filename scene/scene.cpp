@@ -125,10 +125,9 @@ void GLScene::GLInit()
 void GLScene::Draw(float deltaTime)
 {
   auto log = logobj("Draw",libQ::DELAYPRINTFUNCTION);
-  std::list<std::pair<std::shared_ptr<Renderable>, float> > sorted;
-  std::pair<std::shared_ptr<Renderable>, float> closestHovered
-    = std::make_pair(nullptr, 1000.0f);
+  //std::list<std::pair<std::shared_ptr<Renderable>, float> > sorted;
   bool FoundClosestHovered = false;
+  std::pair<std::shared_ptr<RendNode>, float> ClosestHovered(nullptr,100000.f);
 
   glm::mat4 projection = camera->ProjectionMatrix;
   glm::mat4 view = camera->GetViewMatrix();
@@ -169,26 +168,6 @@ void GLScene::Draw(float deltaTime)
     }
     ImGui::EndTabBar();
   }
-/*
-    if (CurrentDebugSceneTab == ModelInfo)
-    {
-        ImGui::BeginChild("ModelInfoPane", ImVec2(ImGui::GetContentRegionAvail().x, 0), 0, 0);
-        for (auto &model : models)
-        {
-            ImGui::SeparatorText(model.first.c_str());
-            ImGui::Text("Name: \"%s\"", model.second->name.c_str());
-            ImGui::Text("Visual Triangle Count: %d", model.second->TCount);
-            ImGui::Text("Hitbox Vertex Count: %zu", model.second->CollisionVerts.size() / 3);
-            ImGui::Text("Hitbox Index Count: %zu", model.second->CollisionIndices.size());
-            ImGui::Text("Is Enclosed? %s", model.second->isEnclosed ? "true" : "false");
-            ImGui::Text("Uses Mipmaps? %s", model.second->doGenerateMipmap ? "true" : "false");
-            ImGui::Text("Vertex Array Object: %d", model.second->VAO);
-            ImGui::Text("Vertex Buffer Object: %d", model.second->vertbuff);
-            ImGui::Text("Element Buffer Object: %d", model.second->ibuff);
-            ImGui::Text("Shader ID: %p", model.second->shader.get());
-        }
-        ImGui::EndChild();
-    }*/
 
   if (CurrentDebugSceneTab == SceneInfo)
   {
@@ -232,8 +211,8 @@ void GLScene::Draw(float deltaTime)
       ImGui::Text("Shader ID: %p", model.second->shader.get()); 
       //ImGui::EndChild();
     }
-    for (auto &cube : renderables)
-      if (cube.first->_model == model.second)
+    for (auto &cube : SceneSorted)
+      if (cube.first->Node._model == model.second)
       {
         model.second->update(CurrentDebugSceneTab == ModelInfo);
         break;
@@ -246,7 +225,7 @@ void GLScene::Draw(float deltaTime)
     if (ImGui::Button("New Object:"))
       ImGui::OpenPopup("NewModelPopup");
     ImGui::SameLine();
-    ImGui::Text("Object Count: %zu",renderables.size());
+    ImGui::Text("Object Count: %zu",SceneSorted.size());
 
     if (ImGui::BeginPopup("NewModelPopup"))
     {
@@ -254,8 +233,9 @@ void GLScene::Draw(float deltaTime)
       {
         if ( ImGui::Selectable( model.first.c_str() ) )
         {
-          std::shared_ptr<Renderable> newnode(new Renderable( model.second ));
-          renderables[newnode] = std::vector<std::shared_ptr<Renderable>>();
+          std::shared_ptr<RendNode> newnode(new RendNode( model.second ));
+          //renderables.push_back( std::make_pair(newnode,std::vector<std::shared_ptr<Renderable>>()));
+          SceneSorted.push_back(std::make_pair(newnode,0.f));
           SceneBase.push_back(newnode);
         }
       }
@@ -264,12 +244,11 @@ void GLScene::Draw(float deltaTime)
   }
 
   int CollisionCount = 0;
-  for (auto j : renderables)
+  for (auto j : SceneSorted)
     j.first->Collisions.clear();
 
-  std::stack<std::shared_ptr<Renderable>> UpcomingNodes;
+  std::stack<std::shared_ptr<RendNode>> CurrentParents, UpcomingNodes;
   std::stack<bool> OpenedStack;
-  std::stack<std::shared_ptr<Renderable>> CurrentParents;
     
   static ImGuiTableFlags tflags = ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody;
   static ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_OpenOnArrow;// | ImGuiTreeNodeFlags_SpanFullWidth;
@@ -284,7 +263,7 @@ void GLScene::Draw(float deltaTime)
   }
   else OpenedStack.push(false);
 
-  std::shared_ptr<Renderable> dragpnode, dragnode = nullptr;
+  std::shared_ptr<RendNode> dragpnode, dragnode = nullptr;
   bool isMouseOnLeftHalf = false, draghovered = false;
 
   for (auto &node : SceneBase)
@@ -306,15 +285,15 @@ void GLScene::Draw(float deltaTime)
 
     glm::mat4 ParentMatrix;
     if (CurrentParents.size() == 0) ParentMatrix = Info.ImpliedTransform;
-    else ParentMatrix = CurrentParents.top()->_modelmatrix;
+    else ParentMatrix = CurrentParents.top()->Node._modelmatrix;
 
-    node->AnimationUpdate(deltaTime, ParentMatrix);
+    node->Node.AnimationUpdate(deltaTime, ParentMatrix);
 
-    for (auto k : renderables)
-      if (node != k.first && k.first->flags.isCollisionUpdated && 
-        node->negAABB.x < k.first->posAABB.x && k.first->negAABB.x < node->posAABB.x &&
-        node->negAABB.y < k.first->posAABB.y && k.first->negAABB.y < node->posAABB.y &&
-        node->negAABB.z < k.first->posAABB.z && k.first->negAABB.z < node->posAABB.z)
+    for (auto &k : SceneSorted)
+      if (node != k.first && k.first->Node.flags.isCollisionUpdated && 
+        node->Node.negAABB.x < k.first->Node.posAABB.x && k.first->Node.negAABB.x < node->Node.posAABB.x &&
+        node->Node.negAABB.y < k.first->Node.posAABB.y && k.first->Node.negAABB.y < node->Node.posAABB.y &&
+        node->Node.negAABB.z < k.first->Node.posAABB.z && k.first->Node.negAABB.z < node->Node.posAABB.z)
       {
         bool found = false;
         for (auto &x : node->Collisions)
@@ -329,23 +308,26 @@ void GLScene::Draw(float deltaTime)
 
         CollisionCount++;
         node->Collisions.push_back(k.first);
-        node->Collide(k.first);
+        node->Node.Collide(std::make_shared<Renderable>(k.first->Node));
           //if (CurrentDebugSceneTab == SceneEditor)
           //    ImGui::Text("Collision: %p and %p", j.first.get(), k.first.get());
       }
 
-    node->genModelMatrix(ParentMatrix);
+    node->Node.genModelMatrix(ParentMatrix);
 
     // Find the nearest object in line with the camera
-    node->flags.isHovered = false;
-    float dis = node->raycastAABB(camera->Position, camera->Front);
-    if (dis > 0.0f && dis < closestHovered.second)
+    node->isInlineWithCamera = false;
+    node->Node.flags.isHovered = false;
+    float dis = node->Node.raycastAABB(camera->Position, camera->Front);
+    //if (closestHovered == SceneSorted.end() ||
+    if (dis > 0.0f && dis < ClosestHovered.second)
     {
-      closestHovered = std::make_pair(node,dis);
+      node->isInlineWithCamera = true;
+      ClosestHovered = std::make_pair(node,dis);
       FoundClosestHovered = true;
     }
 
-    auto children = renderables[node];
+    auto children = node->Children;
 
     if (children.size() > 0)
     {
@@ -365,20 +347,20 @@ void GLScene::Draw(float deltaTime)
       {
         if (OpenedStack.top())
         {
-          bool open = ImGui::TreeNodeEx(node->_model->Info.Title.c_str(), tree_node_flags);
+          bool open = ImGui::TreeNodeEx(node->Node._model->Info.Title.c_str(), tree_node_flags);
           OpenedStack.push(open);
         }
       }
       else
       {
-        ImGui::TreeNodeEx(node->_model->Info.Title.c_str(), tree_node_flags | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen );
+        ImGui::TreeNodeEx(node->Node._model->Info.Title.c_str(), tree_node_flags | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen );
       }
 
       if (ImGui::BeginDragDropTarget())
       {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MyTree"))
         {
-          dragnode = *((std::shared_ptr<Renderable>*)payload->Data);
+          dragnode = *((std::shared_ptr<RendNode>*)payload->Data);
           dragpnode = node;
         }
         draghovered = true;
@@ -405,7 +387,7 @@ void GLScene::Draw(float deltaTime)
       ImGui::TableNextColumn();
       ImGui::Text("%p",node.get());
       ImGui::TableNextColumn();
-      ImGui::Text(node->flags.isSelected ? "true" : "false");
+      ImGui::Text(node->Node.flags.isSelected ? "true" : "false");
 
       if (draghovered)
       {
@@ -438,7 +420,7 @@ void GLScene::Draw(float deltaTime)
     }
     else
     {
-      renderables[dragpnode].push_back(dragnode);
+      dragpnode->Children.push_back(dragnode);
     }
   }
 
@@ -449,11 +431,21 @@ void GLScene::Draw(float deltaTime)
       ImGui::Text("Collision Count: %d", CollisionCount);
   }
 
+  if (SceneSorted.size() > 0)
+    SceneSorted.front().second = SceneSorted.front().first->Node.distance(camera->Position);
+  if (SceneSorted.size() > 1)
+    for (auto outer = SceneSorted.begin() + 1; outer != SceneSorted.end(); ++outer) {
+      outer->second = outer->first->Node.distance(camera->Position);
+      for (auto inner = outer; inner != SceneSorted.begin() && (inner-1)->second > inner->second; --inner) {
+        inner->swap(*(inner-1));
+      }
+    }
+
   // Mark the nearest object in line with the camera as hovered and optionally select
   if (FoundClosestHovered)
   {
-    closestHovered.first->flags.isHovered = true;
-    if ( selectClosest ) DebugSelectRenderable(closestHovered.first);
+    ClosestHovered.first->Node.flags.isHovered = true;
+    if (selectClosest) DebugSelectRenderable(ClosestHovered.first);
   }
   selectClosest = false;
 
@@ -461,39 +453,16 @@ void GLScene::Draw(float deltaTime)
   if (DoSelectionDraw) ImGui::BeginChild("SelectedObjects", ImVec2(ImGui::GetContentRegionAvail().x, 0), 0,0);//ImGuiChildFlags_ResizeY, 0);
 
   // Either render an object or sort it by distance
-  for (auto &cube : renderables)
+  for (auto it = SceneSorted.begin(); it != SceneSorted.end(); ++it)
   {
-    if (DoSelectionDraw && cube.first->flags.isSelected)
+    if (DoSelectionDraw && it->first->Node.flags.isSelected)
     {
-      DebugDrawAABB(cube.first, view_projection, camera->Position);
-      //ImGui::Text("Implied Transform:");
-      //ImPrintMat(cube.first->Info.ImpliedTransform);
-      //ImGui::Text("Model Matrix:");
-      //ImPrintMat(cube.first->_modelmatrix);
+      DebugDrawAABB(it->first, view_projection, camera->Position);
     }
-    else cube.first->flags.isSelected = false;
+    else it->first->Node.flags.isSelected = false;
  
-    if (cube.first->alpha == 1.0f)
-      cube.first->render(view_projection);
-    else
-    {
-      bool isInserted = false;
-      float dis = cube.first->distance(camera->Position);
-      for (auto it = sorted.begin(); it != sorted.end(); it++)
-      {
-        if ( dis > it->second )
-        {
-          sorted.insert( it, std::make_pair(cube.first,dis) );
-          isInserted = true;
-          break;
-        }
-      }
-
-      if ( !isInserted )
-      {
-        sorted.emplace_back(std::make_pair(cube.first,dis));
-      }
-    }
+    if (it->first->Node.alpha == 1.0f)
+      it->first->Node.render(view_projection);
   }
 
   // Draw the skybox after the solid objects
@@ -514,8 +483,9 @@ void GLScene::Draw(float deltaTime)
   // Draw objects with alpha
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  for (auto &cube : sorted)
-    cube.first->render(view_projection);
+  for (auto it = SceneSorted.rbegin(); it != SceneSorted.rend(); ++it)
+    if (it->first->Node.alpha < 1.0f)
+      it->first->Node.render(view_projection);
   glDisable(GL_BLEND);
 
   if (DoSelectionDraw) ImGui::EndChild();
@@ -564,7 +534,6 @@ void GLScene::UpdateSkybox(cv::Mat skybox)
   if (SkyboxTexID == 0)
   {
     SkyboxTexID.Generate();
-    //glGenTextures(1, &SkyboxTexID);
   }
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, SkyboxTexID);
@@ -616,7 +585,7 @@ void GLScene::ImportScene(GLScene *scene)
   ImportModelsFrom(scene);
   if (SceneBase.size() > 0)
   {
-    std::shared_ptr<Renderable> TopNode;
+    std::shared_ptr<RendNode> TopNode;
     auto ModelIT = models.find("blank");
     std::shared_ptr<Model> ModelPTR;
     if (ModelIT == models.end())
@@ -624,16 +593,13 @@ void GLScene::ImportScene(GLScene *scene)
       ModelPTR.reset(new Model());
       models.emplace("blank",ModelPTR);
     } else ModelPTR = ModelIT->second;
-    TopNode.reset(new Renderable(ModelPTR));
-    std::vector<std::shared_ptr<Renderable>> ChildVector;
-    ImportRenderablesFromInto(scene,&ChildVector);
-    renderables.emplace(TopNode,ChildVector);
+    TopNode.reset(new RendNode(ModelPTR));
+    ImportRenderablesFromInto(scene,&TopNode->Children);
+    SceneSorted.push_back(std::make_pair(TopNode,0.f));
     SceneBase.push_back(TopNode);
   }
   else ImportRenderablesFrom(scene);
   shaders.insert(scene->shaders.begin(),scene->shaders.end());
-  //AABBVAO = scene->AABBVAO;
-  //SkyboxVAO = scene->SkyboxVAO;
   if (Info.Author.length() > 0) Info.Author.append(" ; ");
   Info.Author.append(scene->Info.Author);
   Info.ImpliedTransform *= scene->Info.ImpliedTransform;
@@ -652,33 +618,33 @@ void GLScene::ImportRenderablesFrom(GLScene *scene)
   ImportRenderablesFromInto(scene, &SceneBase);
 }
 
-void GLScene::ImportRenderablesFromInto(GLScene *scene, std::vector<std::shared_ptr<Renderable>> *ChildVector)
+void GLScene::ImportRenderablesFromInto(GLScene *scene, std::vector<std::shared_ptr<RendNode>> *ChildVector)
 {
   auto log = logobj("ImportRenderablesFromInto");
-  renderables.insert(scene->renderables.begin(),scene->renderables.end());
+  SceneSorted.insert(SceneSorted.end(),scene->SceneSorted.begin(),scene->SceneSorted.end());
   ChildVector->insert(ChildVector->end(),scene->SceneBase.begin(),scene->SceneBase.end());
   log << "Successfully imported all renderables from scene" << libQ::NOTEVV;
 } 
 
 std::pair<
-  std::vector<std::shared_ptr<Renderable>>*,
-  std::vector<std::shared_ptr<Renderable>>::iterator>
-  GLScene::FindSiblingVectorOfChild(std::shared_ptr<Renderable> child)
+  std::vector<std::shared_ptr<GLScene::RendNode>>*,
+  std::vector<std::shared_ptr<GLScene::RendNode>>::iterator>
+  GLScene::FindSiblingVectorOfChild(std::shared_ptr<RendNode> child)
 {
   auto log = logobj("FindSiblingVectorOfChild",libQ::DELAYPRINTFUNCTION);
   bool isChild = false;
   std::pair<
-    std::vector<std::shared_ptr<Renderable>>*,
-    std::vector<std::shared_ptr<Renderable>>::iterator>
+    std::vector<std::shared_ptr<RendNode>>*,
+    std::vector<std::shared_ptr<RendNode>>::iterator>
   siblingvector;
 
-  for (auto &potential : renderables)
+  for (auto &potential : SceneSorted)
   {
-    auto itt = std::find(potential.second.begin(),potential.second.end(),child);
-    if (itt != potential.second.end())
+    auto itt = std::find(potential.first->Children.begin(),potential.first->Children.end(),child);
+    if (itt != potential.first->Children.end())
     {
       isChild = true;
-      siblingvector.first = &potential.second;
+      siblingvector.first = &potential.first->Children;
       siblingvector.second = itt;
       break;
     }
@@ -697,9 +663,9 @@ std::pair<
   return siblingvector;
 }
 
-bool GLScene::CheckCascadingChild(std::shared_ptr<Renderable> parent, std::shared_ptr<Renderable> child)
+bool GLScene::CheckCascadingChild(std::shared_ptr<RendNode> parent, std::shared_ptr<RendNode> child)
 {
-  for (auto &node : renderables[parent])
+  for (auto &node : parent->Children)
   {
     if (node == child || CheckCascadingChild(node,child))
       return true;
@@ -707,79 +673,79 @@ bool GLScene::CheckCascadingChild(std::shared_ptr<Renderable> parent, std::share
   return false;
 }
 
-void GLScene::DebugSelectRenderable(std::shared_ptr<Renderable> renderable)
+void GLScene::DebugSelectRenderable(std::shared_ptr<RendNode> renderable)
 {
-  bool tempSelect = renderable->flags.isSelected;
-  for (auto &cube : renderables)
-    cube.first->flags.isSelected = false;
-  renderable->flags.isSelected = !tempSelect;
+  bool tempSelect = renderable->Node.flags.isSelected;
+  for (auto &it : SceneSorted)
+    it.first->Node.flags.isSelected = false;
+  renderable->Node.flags.isSelected = !tempSelect;
 }
 
-void GLScene::DebugDrawAABB(std::shared_ptr<Renderable> renderable, glm::mat4 view_projection, glm::vec3 CameraPos)
+void GLScene::DebugDrawAABB(std::shared_ptr<RendNode> renderable, glm::mat4 view_projection, glm::vec3 CameraPos)
 {
   auto log = logobj("DebugDrawAABB",libQ::DELAYPRINTFUNCTION);
   std::array<std::array<glm::vec3,2>,12> lines = {{
     // Front face
     {glm::vec3
-    {renderable->negAABB.x, renderable->negAABB.y, renderable->posAABB.z},
-    {renderable->posAABB.x, renderable->negAABB.y, renderable->posAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.negAABB.y, renderable->Node.posAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.negAABB.y, renderable->Node.posAABB.z},
     },
 
     {glm::vec3
-    {renderable->posAABB.x, renderable->negAABB.y, renderable->posAABB.z},
-    {renderable->posAABB.x, renderable->posAABB.y, renderable->posAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.negAABB.y, renderable->Node.posAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.posAABB.y, renderable->Node.posAABB.z},
     },
 
     {glm::vec3
-    {renderable->posAABB.x, renderable->posAABB.y, renderable->posAABB.z},
-    {renderable->negAABB.x, renderable->posAABB.y, renderable->posAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.posAABB.y, renderable->Node.posAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.posAABB.y, renderable->Node.posAABB.z},
     },
 
     {glm::vec3
-    {renderable->negAABB.x, renderable->posAABB.y, renderable->posAABB.z},
-    {renderable->negAABB.x, renderable->negAABB.y, renderable->posAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.posAABB.y, renderable->Node.posAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.negAABB.y, renderable->Node.posAABB.z},
     },
 
     // Back face
     {glm::vec3
-    {renderable->negAABB.x, renderable->negAABB.y, renderable->negAABB.z},
-    {renderable->posAABB.x, renderable->negAABB.y, renderable->negAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.negAABB.y, renderable->Node.negAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.negAABB.y, renderable->Node.negAABB.z},
     },
 
     {glm::vec3
-    {renderable->posAABB.x, renderable->negAABB.y, renderable->negAABB.z},
-    {renderable->posAABB.x, renderable->posAABB.y, renderable->negAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.negAABB.y, renderable->Node.negAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.posAABB.y, renderable->Node.negAABB.z},
     },
 
     {glm::vec3
-    {renderable->posAABB.x, renderable->posAABB.y, renderable->negAABB.z},
-    {renderable->negAABB.x, renderable->posAABB.y, renderable->negAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.posAABB.y, renderable->Node.negAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.posAABB.y, renderable->Node.negAABB.z},
     },
 
     {glm::vec3
-    {renderable->negAABB.x, renderable->posAABB.y, renderable->negAABB.z},
-    {renderable->negAABB.x, renderable->negAABB.y, renderable->negAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.posAABB.y, renderable->Node.negAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.negAABB.y, renderable->Node.negAABB.z},
     },
 
     // Connecting lines
     {glm::vec3
-    {renderable->negAABB.x, renderable->negAABB.y, renderable->posAABB.z},
-    {renderable->negAABB.x, renderable->negAABB.y, renderable->negAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.negAABB.y, renderable->Node.posAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.negAABB.y, renderable->Node.negAABB.z},
     },
 
     {glm::vec3
-    {renderable->posAABB.x, renderable->negAABB.y, renderable->posAABB.z},
-    {renderable->posAABB.x, renderable->negAABB.y, renderable->negAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.negAABB.y, renderable->Node.posAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.negAABB.y, renderable->Node.negAABB.z},
     },
 
     {glm::vec3
-    {renderable->posAABB.x, renderable->posAABB.y, renderable->posAABB.z},
-    {renderable->posAABB.x, renderable->posAABB.y, renderable->negAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.posAABB.y, renderable->Node.posAABB.z},
+    {renderable->Node.posAABB.x, renderable->Node.posAABB.y, renderable->Node.negAABB.z},
     },
 
     {glm::vec3
-    {renderable->negAABB.x, renderable->posAABB.y, renderable->posAABB.z},
-    {renderable->negAABB.x, renderable->posAABB.y, renderable->negAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.posAABB.y, renderable->Node.posAABB.z},
+    {renderable->Node.negAABB.x, renderable->Node.posAABB.y, renderable->Node.negAABB.z},
     },
   }};
 
@@ -794,7 +760,7 @@ void GLScene::DebugDrawAABB(std::shared_ptr<Renderable> renderable, glm::mat4 vi
         return distanceToCamera(line1) > distanceToCamera(line2);
     });*/
 
-  glm::vec3 AABBCenter = (renderable->posAABB + renderable->negAABB) / 2.0f;
+  glm::vec3 AABBCenter = (renderable->Node.posAABB + renderable->Node.negAABB) / 2.0f;
 
   std::vector<glm::vec3> trianglelines;
   for (auto it = lines.begin(); it < lines.end(); ++it)

@@ -38,7 +38,7 @@ class Model
 {
 public:
   Model();
-  Model( Model *_new );
+  //Model( Model *_new );
   virtual ~Model();
 
   void GLInit();

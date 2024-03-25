@@ -19,6 +19,5 @@ class myCube : public Model
 {
 public:
     myCube();
-    myCube(myCube *_new);
 
 };

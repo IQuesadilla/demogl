@@ -65,7 +65,6 @@ _SharedSDLWindow::_SharedSDLWindow() {
 }
 
 _SharedSDLWindow::~_SharedSDLWindow() {
-  std::cout << "Deleting SDL Window" << std::endl;
   SDL_DestroyWindow(_VAL);
 }
 
@@ -75,6 +74,5 @@ _SharedSDLGLContext::_SharedSDLGLContext() {
 }
 
 _SharedSDLGLContext::~_SharedSDLGLContext() {
-  std::cout << "Deleting GLContext" << std::endl;
   SDL_GL_DeleteContext(_VAL);
 }

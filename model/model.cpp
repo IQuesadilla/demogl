@@ -4,11 +4,11 @@ Model::Model()
 {
   Init();
 }
-
+/*
 Model::Model( Model *_new)
 {
   *this = *_new;
-}
+}*/
 
 Model::~Model()
 {
@@ -69,7 +69,6 @@ void Model::Init()
   TCount = 0;
   isEnclosed = false;
   Info.Title = "blank";
-  std::cout << "here " << this << std::endl;
 }
 
 void Model::setModel(std::vector<GLfloat> vertData)
@@ -168,106 +167,106 @@ void Model::updateIndices(std::vector<GLuint> indexData)
 
 void Model::setTex(cv::Mat image, std::vector<GLfloat> uvData)
 {
-    if (!VAO) VAO.Generate();//glGenVertexArrays(1,&VAO);
-    glBindVertexArray(VAO);
+  if (!VAO) VAO.Generate();//glGenVertexArrays(1,&VAO);
+  glBindVertexArray(VAO);
 
-    if (texbuff == 0)
+  if (texbuff == 0)
+  {
+    texbuff.Generate();
+    //glGenTextures(1, &texbuff);
+    glBindTexture(GL_TEXTURE_2D, texbuff);
+
+    if ( doGenerateMipmap )
     {
-        texbuff.Generate();
-        //glGenTextures(1, &texbuff);
-        glBindTexture(GL_TEXTURE_2D, texbuff);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    } else {
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+  }
 
-        if ( doGenerateMipmap )
-        {
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        } else {
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        }
+
+  if (uvbuff == 0)
+  {
+    uvbuff.Generate();
+    //glGenBuffers(1, &uvbuff);
+    // Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
+    glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
+    glVertexAttribPointer(
+      2,                  // location
+      2,                  // size (per vertex)
+      GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+      GL_FALSE,           // is normalized*
+      0,                  // stride**
+      (void*)0            // array buffer offset
+    );
+    glEnableVertexAttribArray(2);
+
+    // * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
+    // * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
+    // * to floating point. Otherwise, values will be converted to floats directly without normalization. 
+    // ** 0 means tightly packed, in this case 0 means OpenGL should automatically calculate size * sizeof(GLFloat) = 12
+    // ** no distance from "how many bytes it is from the start of one element to the start of another"
+
+  }
+
+  if (uvData.size() > 0)
+  {
+    // Generate a Vertex Buffer Object to represent the cube's colors
+    glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
+    glBufferData(GL_ARRAY_BUFFER, uvData.size() * sizeof(GLfloat), uvData.data(), GL_STATIC_DRAW);
+  }
+
+  if (!image.empty())
+  {
+    if (!image.isContinuous()) {
+      image = image.clone(); // Ensure the data is continuous
     }
 
-    if (uvbuff == 0)
-    {
-        uvbuff.Generate();
-        //glGenBuffers(1, &uvbuff);
-        // Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-        glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
-        glVertexAttribPointer(
-            2,                  // location
-            2,                  // size (per vertex)
-            GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-            GL_FALSE,           // is normalized*
-            0,                  // stride**
-            (void*)0            // array buffer offset
-        );
-        glEnableVertexAttribArray(2);
+    glBindTexture(GL_TEXTURE_2D, texbuff);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-        // * if normalized is set to GL_TRUE, it indicates that values stored in an integer format are to be mapped
-        // * to the range [-1,1] (for signed values) or [0,1] (for unsigned values) when they are accessed and converted
-        // * to floating point. Otherwise, values will be converted to floats directly without normalization. 
+    // Takes a long time, would ideally happen in separate thread but difficult to implement
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_RGB, GL_UNSIGNED_BYTE, image.data ); 
 
-        // ** 0 means tightly packed, in this case 0 means OpenGL should automatically calculate size * sizeof(GLFloat) = 12
-        // ** no distance from "how many bytes it is from the start of one element to the start of another"
-
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+      std::cout << "Model Error: " << err << std::endl;
     }
 
-    if (uvData.size() > 0)
-    {
-        // Generate a Vertex Buffer Object to represent the cube's colors
-        glBindBuffer(GL_ARRAY_BUFFER, uvbuff);
-        glBufferData(GL_ARRAY_BUFFER, uvData.size() * sizeof(GLfloat), uvData.data(), GL_STATIC_DRAW);
-    }
-
-    if (!image.empty())
-    {
-        cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
-
-        if (!image.isContinuous()) {
-            image = image.clone(); // Ensure the data is continuous
-        }
-
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-        glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, image.cols, image.rows, 0, GL_RGB, GL_UNSIGNED_BYTE, image.data ); 
-
-        GLenum err = glGetError();
-        if (err != GL_NO_ERROR) {
-            std::cout << "Model Error: " << err << std::endl;
-        }
-
-        if ( doGenerateMipmap )
-            glGenerateMipmap(GL_TEXTURE_2D);
-    }
+    if ( doGenerateMipmap )
+      glGenerateMipmap(GL_TEXTURE_2D);
+  }
 }
 
 void Model::setColors(std::vector<GLfloat> colorData)
 {
-    if (colorbuff == 0)
-    {
-        colorbuff.Generate();
-        //glGenBuffers(1, &colorbuff);
-        // Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
-        glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
-        glVertexAttribPointer(
-            1,                  // location
-            3,                  // size (per vertex)
-            GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
-            GL_FALSE,           // is normalized*
-            0,                  // stride**
-            (void*)0            // array buffer offset
-        );
-        glEnableVertexAttribArray(1);
-    }
+  if (colorbuff == 0)
+  {
+    colorbuff.Generate();
+    //glGenBuffers(1, &colorbuff);
+    // Set colors to location 1 - GLSL: layout(location = 1) in vec3 aColor;
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
+    glVertexAttribPointer(
+      1,                  // location
+      3,                  // size (per vertex)
+      GL_FLOAT,           // type (32-bit float, equal to C type GLFloat)
+      GL_FALSE,           // is normalized*
+      0,                  // stride**
+      (void*)0            // array buffer offset
+    );
+    glEnableVertexAttribArray(1);
+  }
 
-    if (colorData.size() > 0)
-    {
-        // Generate a Vertex Buffer Object to represent the cube's colors
-        glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
-        glBufferData(GL_ARRAY_BUFFER, colorData.size() * sizeof(GLfloat), colorData.data(), GL_STATIC_DRAW);
-    }
+  if (colorData.size() > 0)
+  {
+    // Generate a Vertex Buffer Object to represent the cube's colors
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuff);
+    glBufferData(GL_ARRAY_BUFFER, colorData.size() * sizeof(GLfloat), colorData.data(), GL_STATIC_DRAW);
+  }
 }

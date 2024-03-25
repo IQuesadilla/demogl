@@ -1,6 +1,6 @@
 # Set the toolchain file before calling project()
 
-list(APPEND VCPKG_PACKAGES glm glad sdl2 opencv "imgui[core,opengl3-binding,sdl2-binding,freetype]")
+list(APPEND VCPKG_PACKAGES glm glad sdl2 opencv "imgui[core,opengl3-binding,sdl2-binding,freetype]" lua)
 include(libQ/vcpkg_install/vcpkg_install.cmake)
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Vcpkg toolchain file")
 
@@ -13,12 +13,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # -Wall
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
+
 # Find required packages
 find_package(SDL2 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
+find_package(Lua REQUIRED)
 
 include_directories(.)
 include_directories(${CMAKE_SOURCE_DIR}/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/include)
@@ -27,6 +30,7 @@ include_directories(libQ/include)
 include_directories(glad/)
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${SDL2_INCLUDE_DIRS})
+include_directories(${LUA_INCLUDE_DIR})
 
 add_subdirectory(libQ/)
 add_library(glscene OBJECT
@@ -39,6 +43,11 @@ add_library(glscene OBJECT
     model/model.cpp
     model/cube.cpp
     model/window.cpp
+)
+
+add_executable(cvdemo cvdemo.cpp)
+target_link_libraries(cvdemo
+  ${OpenCV_LIBS}
 )
 
 add_executable(sdlgl sdlgl.cpp ./glad/glad.c)
@@ -85,4 +94,5 @@ target_link_libraries(split
     glm::glm
     Q
     glscene
+    ${LUA_LIBRARIES}
 )
